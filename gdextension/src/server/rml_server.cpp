@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include "../interface/render_interface_godot.h"
+#include "../plugin/rml_godot_plugin.h"
 #include "../rml_util.h"
 #include "rml_server.h"
 
@@ -16,7 +17,7 @@ RMLServer *RMLServer::get_singleton() {
 	return singleton;
 }
 
-RID RMLServer::create_document(const RID &p_canvas_item) {
+RID RMLServer::initialize_document(const RID &p_canvas_item) {
 	RID new_rid = document_owner.make_rid();
 	std::stringstream context_str;
 	context_str << "godot_context_" << new_rid.get_id();
@@ -30,8 +31,14 @@ RID RMLServer::create_document(const RID &p_canvas_item) {
 	if (doc_data->ctx == nullptr) {
 		document_owner.free(new_rid);
 		ERR_FAIL_V_MSG(RID(), "Couldn't create the context");
-		return RID();
 	}
+
+	return new_rid;
+}
+
+RID RMLServer::create_document(const RID &p_canvas_item) {
+	RID new_rid = initialize_document(p_canvas_item);
+	DocumentData *doc_data = document_owner.get_or_null(new_rid);
 
 	doc_data->doc = doc_data->ctx->CreateDocument();
 	if (doc_data->doc == nullptr) {
@@ -41,8 +48,6 @@ RID RMLServer::create_document(const RID &p_canvas_item) {
 		return RID();
 	}
 
-	doc_data->doc->SetProperty("font-family", "default");
-
 	doc_data->doc->Show();
 
 	doc_data->canvas_item = p_canvas_item;
@@ -51,21 +56,8 @@ RID RMLServer::create_document(const RID &p_canvas_item) {
 }
 
 RID RMLServer::create_document_from_rml_string(const RID &p_canvas_item, const String &p_string) {
-	RID new_rid = document_owner.make_rid();
-	std::stringstream context_str;
-	context_str << "godot_context_" << new_rid.get_id();
-	
+	RID new_rid = initialize_document(p_canvas_item);
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
-	doc_data->ctx = Rml::CreateContext(
-		context_str.str(),
-		Rml::Vector2i(1, 1)
-	);
-
-	if (doc_data->ctx == nullptr) {
-		document_owner.free(new_rid);
-		ERR_FAIL_V_MSG(RID(), "Couldn't create the context");
-		return RID();
-	}
 
 	doc_data->doc = doc_data->ctx->LoadDocumentFromMemory(godot_to_rml_string(p_string));
 	if (doc_data->doc == nullptr) {
@@ -83,22 +75,8 @@ RID RMLServer::create_document_from_rml_string(const RID &p_canvas_item, const S
 }
 
 RID RMLServer::create_document_from_path(const RID &p_canvas_item, const String &p_path) {
-	RID new_rid = document_owner.make_rid();
-	std::stringstream context_str;
-	context_str << "godot_context_" << new_rid.get_id();
-	
+	RID new_rid = initialize_document(p_canvas_item);
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
-	doc_data->ctx = Rml::CreateContext(
-		context_str.str(),
-		Rml::Vector2i(1, 1)
-	);
-	doc_data->ctx->SetDocumentsBaseTag("rml");
-
-	if (doc_data->ctx == nullptr) {
-		document_owner.free(new_rid);
-		ERR_FAIL_V_MSG(RID(), "Couldn't create the context");
-		return RID();
-	}
 
 	doc_data->doc = doc_data->ctx->LoadDocument(godot_to_rml_string(p_path));
 	if (doc_data->doc == nullptr) {
@@ -116,6 +94,7 @@ RID RMLServer::create_document_from_path(const RID &p_canvas_item, const String 
 }
 
 Ref<RMLElement> RMLServer::get_document_root(const RID &p_document) {
+	ERR_FAIL_COND_V(!document_owner.owns(p_document), nullptr);
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL_V(doc_data, nullptr);
 
@@ -124,6 +103,7 @@ Ref<RMLElement> RMLServer::get_document_root(const RID &p_document) {
 }
 
 Ref<RMLElement> RMLServer::create_element(const RID &p_document, const String &p_tag_name) {
+	ERR_FAIL_COND_V(!document_owner.owns(p_document), nullptr);
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL_V(doc_data, nullptr);
 
@@ -134,6 +114,7 @@ Ref<RMLElement> RMLServer::create_element(const RID &p_document, const String &p
 }
 
 void RMLServer::document_set_size(const RID &p_document, const Vector2i &p_size) {
+	ERR_FAIL_COND(!document_owner.owns(p_document));
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL(doc_data);
 	doc_data->ctx->SetDimensions(Rml::Vector2i(
@@ -143,6 +124,7 @@ void RMLServer::document_set_size(const RID &p_document, const Vector2i &p_size)
 }
 
 bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEvent> &p_event) {
+	ERR_FAIL_COND_V(!document_owner.owns(p_document), false);
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL_V(doc_data, false);
 	
@@ -172,6 +154,15 @@ bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEve
 	}
 
 	return false;
+}
+
+bool RMLServer::load_default_stylesheet(const String &p_path) {
+	Rml::SharedPtr<Rml::StyleSheetContainer> ss = Rml::Factory::InstanceStyleSheetFile(godot_to_rml_string(p_path));
+	ERR_FAIL_NULL_V(ss, false);
+
+	RmlPluginGodot::get_singleton()->set_default_stylesheet(ss);
+
+	return true;
 }
 
 bool RMLServer::load_font_face_from_path(const String &p_path, bool p_fallback_face) {
@@ -213,10 +204,16 @@ void RMLServer::render_pre_frame() {
 }
 
 void RMLServer::initialize() {
+	ERR_FAIL_COND_MSG(initialized, "Already initialized");
 	RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &RMLServer::render_pre_frame));
+	initialized = true;
+	Rml::Log::Message(Rml::Log::LT_INFO, "RMLServer initialized.");
 }
 
 void RMLServer::_bind_methods() {;
+	ClassDB::bind_method(D_METHOD("is_initialized"), &RMLServer::is_initialized);
+	ClassDB::bind_method(D_METHOD("initialize"), &RMLServer::initialize);
+
 	ClassDB::bind_method(D_METHOD("create_document", "canvas_item"), &RMLServer::create_document);
 	ClassDB::bind_method(D_METHOD("create_document_from_rml_string", "canvas_item", "rml"), &RMLServer::create_document_from_rml_string);
 	ClassDB::bind_method(D_METHOD("create_document_from_path", "canvas_item", "path"), &RMLServer::create_document_from_path);
@@ -226,6 +223,7 @@ void RMLServer::_bind_methods() {;
 	ClassDB::bind_method(D_METHOD("document_set_size", "document", "size"), &RMLServer::document_set_size);
 	ClassDB::bind_method(D_METHOD("document_process_event", "document", "event"), &RMLServer::document_process_event);
 
+	ClassDB::bind_method(D_METHOD("load_default_stylesheet", "path"), &RMLServer::load_default_stylesheet);
 	ClassDB::bind_method(D_METHOD("load_font_face_from_path", "path", "fallback_face"), &RMLServer::load_font_face_from_path, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("load_font_face_from_buffer", "buffer", "family", "fallback_face", "is_italic"), &RMLServer::load_font_face_from_buffer, DEFVAL(false), DEFVAL(false));
 

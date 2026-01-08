@@ -18,6 +18,10 @@ config/name="RmlUI"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+RMLInit="*uid://fefqgwl1nnlt"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/rmlui/plugin.cfg")

@@ -2,12 +2,10 @@
 extends EditorPlugin
 
 func _enter_tree() -> void:
-	# RMLServer.load_font_face("res://addons/rml/fonts/OpenSans-VariableFont_wdth,wght.ttf")
-	var default_font: FontFile = ThemeDB.fallback_font as FontFile
-	if default_font:
-		RMLServer.load_font_face_from_buffer(default_font.data, "default")
+	add_autoload_singleton("RMLInit", "res://addons/rmlui/rml_init.gd")
 
 func _exit_tree() -> void:
+	remove_autoload_singleton("RMLInit")
 	pass
 
 

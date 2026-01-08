@@ -4,8 +4,13 @@
 
 using namespace godot;
 
+#ifdef STRICT_REFERENCE_NODE
 #define ENSURE_VALID(ref) ERR_FAIL_NULL_MSG(ref, #ref " is invalid"); ERR_FAIL_NULL_MSG(ref->element, #ref " is invalid");
 #define ENSURE_VALID_V(ref, val) ERR_FAIL_NULL_V_MSG(ref, val, #ref " is invalid"); ERR_FAIL_NULL_V_MSG(ref->element, val, #ref " is invalid");
+#else
+#define ENSURE_VALID(ref) if (ref == nullptr || !ref->element.is_valid()) { return; }
+#define ENSURE_VALID_V(ref, val) if (ref == nullptr || !ref->element.is_valid()) { return val; }
+#endif
 
 void RMLElement::append_child(const Ref<RMLElement> &p_child) {
 	ENSURE_VALID(this);
@@ -26,7 +31,7 @@ void RMLElement::remove_child(const Ref<RMLElement> &p_child) {
 }
 
 Ref<RMLElement> RMLElement::query_selector(const String &p_selector) const {
-	ENSURE_VALID_V(this, nullptr);
+	ENSURE_VALID_V(this, RMLElement::empty());
 	ElementRef ref = ElementRef(element->QuerySelector(godot_to_rml_string(p_selector)));
 
 	return RMLElement::ref(ref);
@@ -52,10 +57,16 @@ int RMLElement::get_child_count() const {
 	return element->GetNumChildren();
 }
 
+Ref<RMLElement> RMLElement::get_parent() const {
+	ENSURE_VALID_V(this, RMLElement::empty());
+	ElementRef ref = ElementRef(element->GetParentNode());
+	return RMLElement::ref(ref);
+}
+
 Ref<RMLElement> RMLElement::get_child(int p_idx) const {
-	ENSURE_VALID_V(this, nullptr);
+	ENSURE_VALID_V(this, RMLElement::empty());
 	int count = element->GetNumChildren();
-	ERR_FAIL_INDEX_V(p_idx, count, nullptr);
+	ERR_FAIL_INDEX_V(p_idx, count, RMLElement::empty());
 
 	ElementRef ref = ElementRef(element->GetChild(p_idx));
 	return RMLElement::ref(ref);
@@ -81,6 +92,24 @@ void RMLElement::clear_children() {
 	for (int i = count - 1; i >= 0; i--) {
 		element->RemoveChild(element->GetChild(i));
 	}
+}
+
+Rect2 RMLElement::get_rect() const {
+	ENSURE_VALID_V(this, Rect2());
+	Vector2 r_min = Vector2(INFINITY, INFINITY);
+	Vector2 r_max = Vector2(-INFINITY, -INFINITY);
+
+	int box_count = element->GetNumBoxes();
+	for (int i = 0; i < box_count; i++) {
+		Rml::Vector2f off;
+		const Rml::Box &b = element->GetBox(i, off);
+		Rml::Vector2f pos = b.GetPosition();
+		Rml::Vector2f s = b.GetSize();
+		r_min = r_min.min(Vector2(pos.x, pos.y));
+		r_max = r_max.max(Vector2(pos.x + s.x, pos.y + s.y));
+	}
+
+	return Rect2(r_min, r_max-r_min);
 }
 
 void RMLElement::set_attribute(const String &p_name, const Variant &p_val) {
@@ -113,7 +142,7 @@ void RMLElement::set_property(const String &p_name, const String &p_val) {
 }
 
 String RMLElement::get_property(const String &p_name, const String &p_default) const {
-	ENSURE_VALID_V(this, Variant());
+	ENSURE_VALID_V(this, p_default);
 	const Rml::Property *prop = element->GetProperty(godot_to_rml_string(p_name));
 	if (prop == nullptr) {
 		return p_default;
@@ -153,6 +182,12 @@ Ref<RMLElement> RMLElement::ref(ElementRef &ref) {
 	return ret;
 }
 
+Ref<RMLElement> RMLElement::empty() {
+	Ref<RMLElement> ret;
+	ret.instantiate();
+	return ret;
+}
+
 void RMLElement::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("append_child", "child"), &RMLElement::append_child);
 	ClassDB::bind_method(D_METHOD("remove_child", "child"), &RMLElement::remove_child);
@@ -161,8 +196,11 @@ void RMLElement::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("query_selector_all", "selector"), &RMLElement::query_selector_all);
 	ClassDB::bind_method(D_METHOD("get_child_count"), &RMLElement::get_child_count);
 	ClassDB::bind_method(D_METHOD("get_child", "index"), &RMLElement::get_child);
+	ClassDB::bind_method(D_METHOD("get_parent"), &RMLElement::get_parent);
 	ClassDB::bind_method(D_METHOD("get_children"), &RMLElement::get_children);
 	ClassDB::bind_method(D_METHOD("clear_children"), &RMLElement::clear_children);
+
+	ClassDB::bind_method(D_METHOD("get_rect"), &RMLElement::get_rect);
 
 	ClassDB::bind_method(D_METHOD("set_attribute", "name", "value"), &RMLElement::set_attribute);
 	ClassDB::bind_method(D_METHOD("get_attribute", "name", "default_value"), &RMLElement::get_attribute, DEFVAL(Variant()));

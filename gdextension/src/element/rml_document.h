@@ -23,6 +23,10 @@ public:
 	void _notification(int p_what);
 	void _gui_input(const Ref<InputEvent> &p_event);
 
+	void new_document();
+	void load_from_rml_string(const String &p_rml);
+	void load_from_path(const String &p_path);
+
 	Ref<RMLElement> as_element() const;
 	Ref<RMLElement> create_element(const String &p_tag_name) const;
 

@@ -30,6 +30,24 @@ void RMLDocument::_gui_input(const Ref<InputEvent> &p_event) {
 	}
 }
 
+void RMLDocument::new_document() {
+	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	rid = RMLServer::get_singleton()->create_document(get_canvas_item());
+	RMLServer::get_singleton()->document_set_size(rid, get_size());
+}
+
+void RMLDocument::load_from_rml_string(const String &p_rml) {
+	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	rid = RMLServer::get_singleton()->create_document_from_rml_string(get_canvas_item(), p_rml);
+	RMLServer::get_singleton()->document_set_size(rid, get_size());
+}
+
+void RMLDocument::load_from_path(const String &p_path) {
+	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	rid = RMLServer::get_singleton()->create_document_from_path(get_canvas_item(), p_path);
+	RMLServer::get_singleton()->document_set_size(rid, get_size());
+}
+
 Ref<RMLElement> RMLDocument::as_element() const {
 	return RMLServer::get_singleton()->get_document_root(rid);
 }
@@ -39,13 +57,16 @@ Ref<RMLElement> RMLDocument::create_element(const String &p_tag_name) const {
 }
 
 void RMLDocument::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("new_document"), &RMLDocument::new_document);
+	ClassDB::bind_method(D_METHOD("load_from_rml_string", "rml_string"), &RMLDocument::load_from_rml_string);
+	ClassDB::bind_method(D_METHOD("load_from_path", "path"), &RMLDocument::load_from_path);
+
 	ClassDB::bind_method(D_METHOD("as_element"), &RMLDocument::as_element);
 	ClassDB::bind_method(D_METHOD("create_element", "tag_name"), &RMLDocument::create_element);
 }
 
 RMLDocument::RMLDocument() { 
-	rid = RMLServer::get_singleton()->create_document(get_canvas_item());
-	RMLServer::get_singleton()->document_set_size(rid, get_size());
+	new_document();
 }
 
 RMLDocument::~RMLDocument() {

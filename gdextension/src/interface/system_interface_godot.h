@@ -1,19 +1,28 @@
 #pragma once
 #include <RmlUi/Core/SystemInterface.h>
-#include <godot_cpp/classes/time.hpp>
+#include "../rml_util.h"
 
 namespace godot {
 
 class SystemInterfaceGodot : public Rml::SystemInterface {
 public:
-	double GetElapsedTime() override {
-		return Time::get_singleton()->get_ticks_msec() / 1000.0;
-	}
+	double GetElapsedTime() override;
 
-	bool LogMessage(Rml::Log::Type, const Rml::String& msg) override {
-		UtilityFunctions::print("[RmlUi] ", msg.c_str());
-		return true;
-	}
+	int TranslateString(Rml::String& translated, const Rml::String& input) override;
+
+	void JoinPath(Rml::String& translated_path, const Rml::String& document_path, const Rml::String& path) override;
+
+	bool LogMessage(Rml::Log::Type msg_type, const Rml::String& msg) override;
+
+	void SetMouseCursor(const Rml::String& cursor_name) override;
+
+	void SetClipboardText(const Rml::String& text) override;
+
+	void GetClipboardText(Rml::String& text) override;
+
+	void ActivateKeyboard(Rml::Vector2f caret_position, float line_height) override;
+
+	void DeactivateKeyboard() override;
 };
 
 }

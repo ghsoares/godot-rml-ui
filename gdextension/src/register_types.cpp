@@ -17,6 +17,7 @@
 #include "element/rml_document.h"
 #include "element/rml_element.h"
 #include "server/rml_server.h"
+#include "plugin/rml_godot_plugin.h"
 
 using namespace godot;
 
@@ -26,10 +27,12 @@ void initialize_rmlui() {
     static SystemInterfaceGodot system;
     static RenderInterfaceGodot render;
     static FileInterfaceGodot file;
+	static RmlPluginGodot plugin;
 	
 	Rml::SetSystemInterface(&system);
 	Rml::SetRenderInterface(&render);
 	Rml::SetFileInterface(&file);
+	Rml::RegisterPlugin(&plugin);
 	Rml::Initialise();
 }
 
@@ -57,10 +60,6 @@ void initialize_gdex_module(ModuleInitializationLevel p_level) {
 	}
 }
 
-void on_startup() {
-	RMLServer::get_singleton()->initialize();
-}
-
 void uninitialize_gdex_module(ModuleInitializationLevel p_level) {
 	switch (p_level) {
 		case MODULE_INITIALIZATION_LEVEL_SERVERS: {
@@ -80,7 +79,6 @@ GDExtensionBool GDE_EXPORT gdex_library_init(GDExtensionInterfaceGetProcAddress 
 
 	init_obj.register_initializer(initialize_gdex_module);
 	init_obj.register_terminator(uninitialize_gdex_module);
-	init_obj.register_startup_callback(on_startup);
 	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
 	return init_obj.init();

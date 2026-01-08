@@ -85,9 +85,12 @@ public:
 	Ref<RMLElement> query_selector(const String &p_selector) const;
 	TypedArray<Ref<RMLElement>> query_selector_all(const String &p_selector) const;
 	int get_child_count() const;
+	Ref<RMLElement> get_parent() const;
 	Ref<RMLElement> get_child(int p_idx) const;
 	TypedArray<Ref<RMLElement>> get_children() const;
 	void clear_children();
+
+	Rect2 get_rect() const;
 
 	void set_attribute(const String &p_name, const Variant &p_val);
 	Variant get_attribute(const String &p_name, const Variant &p_default = Variant()) const;
@@ -103,6 +106,7 @@ public:
 	void set_inner_rml(const String &p_rml);
 
 	static Ref<RMLElement> ref(ElementRef &ref);
+	static Ref<RMLElement> empty();
 
 	RMLElement(): element(nullptr) {}
 	RMLElement(ElementRef el): element(el) {}

@@ -75,6 +75,7 @@ void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, 
     if (tex_data) {
         tex_rid = tex_data->rid;
     }
+    // UtilityFunctions::print(vformat("Rendering geometry: %d vertices, texture: %s", new_points.size(), tex_rid));
 
     rs->canvas_item_add_triangle_array(
         canvas_item,
@@ -143,21 +144,16 @@ void RenderInterfaceGodot::ReleaseTexture(Rml::TextureHandle texture) {
 }
 
 void RenderInterfaceGodot::EnableScissorRegion(bool enable) {
-    // RenderingServer *rs = RenderingServer::get_singleton();
-    // rs->canvas_item_add_scissor(canvas_item, enable, Rect2());
-    // UtilityFunctions::print("Enable scissor: ", enable);
+    RenderingServer *rs = RenderingServer::get_singleton();
+    rs->canvas_item_add_scissor(canvas_item, enable, Rect2());
 }
 
 void RenderInterfaceGodot::SetScissorRegion(Rml::Rectanglei region) {
-    // RenderingServer *rs = RenderingServer::get_singleton();
-    // rs->canvas_item_add_scissor(canvas_item, true, Rect2(
-    //     Vector2(region.p0.x, region.p0.y),
-    //     Vector2(region.Size().x, region.Size().y)
-    // ));
-    // UtilityFunctions::print("Set scissor region: ", Rect2(
-    //     Vector2(region.p0.x, region.p0.y),
-    //     Vector2(region.Size().x, region.Size().y)
-    // ));
+    RenderingServer *rs = RenderingServer::get_singleton();
+    rs->canvas_item_add_scissor(canvas_item, true, Rect2(
+        Vector2(region.p0.x, region.p0.y),
+        Vector2(region.Size().x, region.Size().y)
+    ));
 }
 
 RenderInterfaceGodot::RenderInterfaceGodot() {
