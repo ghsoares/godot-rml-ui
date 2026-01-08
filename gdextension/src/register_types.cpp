@@ -6,22 +6,30 @@
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/godot.hpp>
 
 #include <RmlUi/Core.h>
 #include "interface/system_interface_godot.h"
 #include "interface/render_interface_godot.h"
+#include "interface/file_interface_godot.h"
 #include "element/rml_document.h"
+#include "element/rml_element.h"
+#include "server/rml_server.h"
 
 using namespace godot;
+
+static RMLServer *rml_server = nullptr;
 
 void initialize_rmlui() {
     static SystemInterfaceGodot system;
     static RenderInterfaceGodot render;
+    static FileInterfaceGodot file;
 	
 	Rml::SetSystemInterface(&system);
 	Rml::SetRenderInterface(&render);
+	Rml::SetFileInterface(&file);
 	Rml::Initialise();
 }
 
@@ -34,15 +42,30 @@ void initialize_gdex_module(ModuleInitializationLevel p_level) {
 		case MODULE_INITIALIZATION_LEVEL_CORE: {
 			initialize_rmlui();
 		} break;
+		case MODULE_INITIALIZATION_LEVEL_SERVERS: {
+			GDREGISTER_CLASS(RMLServer);
+
+			rml_server = memnew(RMLServer);
+
+			Engine::get_singleton()->register_singleton("RMLServer", rml_server);
+		} break;
 		case MODULE_INITIALIZATION_LEVEL_SCENE: {
 			GDREGISTER_CLASS(RMLDocument);
+			GDREGISTER_CLASS(RMLElement);
 		} break;
 		default: break;
 	}
 }
 
+void on_startup() {
+	RMLServer::get_singleton()->initialize();
+}
+
 void uninitialize_gdex_module(ModuleInitializationLevel p_level) {
 	switch (p_level) {
+		case MODULE_INITIALIZATION_LEVEL_SERVERS: {
+			memdelete(rml_server);
+		} break;
 		case MODULE_INITIALIZATION_LEVEL_CORE: {
 			uninitialize_rmlui();
 		} break;
@@ -57,6 +80,7 @@ GDExtensionBool GDE_EXPORT gdex_library_init(GDExtensionInterfaceGetProcAddress 
 
 	init_obj.register_initializer(initialize_gdex_module);
 	init_obj.register_terminator(uninitialize_gdex_module);
+	init_obj.register_startup_callback(on_startup);
 	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
 	return init_obj.init();

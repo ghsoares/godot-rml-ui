@@ -1,93 +1,55 @@
 #include <iostream>
 #include <sstream>
 
-#include <godot_cpp/classes/input_event.hpp>
-#include <godot_cpp/classes/input_event_mouse_button.hpp>
-#include <godot_cpp/classes/input_event_mouse_motion.hpp>
-
-#include "../interface/render_interface_godot.h"
+#include "../server/rml_server.h"
+#include "rml_element.h"
 #include "rml_document.h"
 
 using namespace godot;
 
-Rml::String godot::godot_to_rml_string(const String &p_str) {
-	return Rml::String(p_str.utf8().get_data());
-}
-
-String godot::rml_to_godot_string(const Rml::String &p_str) {
-	return String(p_str.c_str());
-}
-
 void RMLDocument::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
-			set_process(true);
-		} break;
-		case NOTIFICATION_EXIT_TREE: {
-			set_process(false);
-		} break;
-		case NOTIFICATION_PROCESS: {
-			if (!ctx) { return; }
-			ctx->Update();
-			queue_redraw();
-		} break;
-		case NOTIFICATION_DRAW: {
-			if (!ctx) { return; }
-			RenderInterfaceGodot::get_singleton()->set_drawing_canvas_item(get_canvas_item());
-			ctx->Render();
-			RenderInterfaceGodot::get_singleton()->set_drawing_canvas_item(RID());
+			RMLServer::get_singleton()->document_set_size(rid, Vector2i(
+				get_size().x,
+				get_size().y
+			));
 		} break;
 		case NOTIFICATION_RESIZED: {
-			if (!ctx) { return; }
-			ctx->SetDimensions(Rml::Vector2i(get_size().x, get_size().y));
+			RMLServer::get_singleton()->document_set_size(rid, Vector2i(
+				get_size().x,
+				get_size().y
+			));
 		} break;
 	}
 }
 
 void RMLDocument::_gui_input(const Ref<InputEvent> &p_event) {
-	if (!ctx) { return; }
-
-	Ref<InputEventMouseButton> mb = p_event;
-	Ref<InputEventMouseMotion> mm = p_event;
-
-	if (mb.is_valid()) {
-		bool interacted = !ctx->ProcessMouseButtonDown(
-			mb->get_button_index() - 1,
-			mb->is_pressed()
-		);
-		if (interacted) {
-			accept_event();
-		}
+	if (RMLServer::get_singleton()->document_process_event(rid, p_event)) {
+		accept_event();
 	}
+}
 
-	if (mm.is_valid()) {
-		bool interacted = !ctx->ProcessMouseMove(
-			mm->get_position().x,
-            mm->get_position().y,
-            0
-		);
-		if (interacted) {
-			accept_event();
-		}
-	}
+Ref<RMLElement> RMLDocument::as_element() const {
+	return RMLServer::get_singleton()->get_document_root(rid);
+}
+
+Ref<RMLElement> RMLDocument::create_element(const String &p_tag_name) const {
+	return RMLServer::get_singleton()->create_element(rid, p_tag_name);
 }
 
 void RMLDocument::_bind_methods() {
-	
+	ClassDB::bind_method(D_METHOD("as_element"), &RMLDocument::as_element);
+	ClassDB::bind_method(D_METHOD("create_element", "tag_name"), &RMLDocument::create_element);
 }
 
 RMLDocument::RMLDocument() { 
-	std::stringstream ss;
-	ss << "godot_context_" << get_instance_id();
-	ctx = Rml::CreateContext(
-		ss.str(),
-		Rml::Vector2i(get_size().x, get_size().y)
-	);
-
-	doc = ctx->CreateDocument();
-	doc->Show();
+	rid = RMLServer::get_singleton()->create_document(get_canvas_item());
+	RMLServer::get_singleton()->document_set_size(rid, get_size());
 }
 
 RMLDocument::~RMLDocument() {
-	
+	if (rid.is_valid()) {
+		RMLServer::get_singleton()->free_rid(rid);
+	}
 }

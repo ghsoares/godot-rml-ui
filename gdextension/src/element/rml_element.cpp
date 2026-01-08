@@ -1,0 +1,180 @@
+#include "rml_element.h"
+#include "../server/rml_server.h"
+#include "../rml_util.h"
+
+using namespace godot;
+
+#define ENSURE_VALID(ref) ERR_FAIL_NULL_MSG(ref, #ref " is invalid"); ERR_FAIL_NULL_MSG(ref->element, #ref " is invalid");
+#define ENSURE_VALID_V(ref, val) ERR_FAIL_NULL_V_MSG(ref, val, #ref " is invalid"); ERR_FAIL_NULL_V_MSG(ref->element, val, #ref " is invalid");
+
+void RMLElement::append_child(const Ref<RMLElement> &p_child) {
+	ENSURE_VALID(this);
+	ENSURE_VALID(p_child);
+	ERR_FAIL_COND(p_child->element->GetParentNode() != nullptr);
+	
+	Rml::Element *el = element->AppendChild(p_child->element.pop_owned());
+	p_child->element.attached = el;
+}
+
+void RMLElement::remove_child(const Ref<RMLElement> &p_child) {
+	ENSURE_VALID(this);
+	ENSURE_VALID(p_child);
+	ERR_FAIL_COND(p_child->element->GetParentNode() != element.get());
+
+	Rml::ElementPtr el = element->RemoveChild(p_child->element.pop_attached());
+	p_child->element.owned = std::move(el);
+}
+
+Ref<RMLElement> RMLElement::query_selector(const String &p_selector) const {
+	ENSURE_VALID_V(this, nullptr);
+	ElementRef ref = ElementRef(element->QuerySelector(godot_to_rml_string(p_selector)));
+
+	return RMLElement::ref(ref);
+}
+
+TypedArray<Ref<RMLElement>> RMLElement::query_selector_all(const String &p_selector) const {
+	ENSURE_VALID_V(this, TypedArray<Ref<RMLElement>>());
+	TypedArray<Ref<RMLElement>> ret;
+
+	Rml::ElementList list;
+	element->QuerySelectorAll(list, godot_to_rml_string(p_selector));
+
+	for (Rml::Element *el : list) {
+		ElementRef ref = ElementRef(el);
+		ret.append(RMLElement::ref(ref));
+	}
+
+	return ret;
+}
+
+int RMLElement::get_child_count() const {
+	ENSURE_VALID_V(this, 0);
+	return element->GetNumChildren();
+}
+
+Ref<RMLElement> RMLElement::get_child(int p_idx) const {
+	ENSURE_VALID_V(this, nullptr);
+	int count = element->GetNumChildren();
+	ERR_FAIL_INDEX_V(p_idx, count, nullptr);
+
+	ElementRef ref = ElementRef(element->GetChild(p_idx));
+	return RMLElement::ref(ref);
+}
+
+TypedArray<Ref<RMLElement>> RMLElement::get_children() const {
+	ENSURE_VALID_V(this, TypedArray<Ref<RMLElement>>());
+	int count = element->GetNumChildren();
+	TypedArray<Ref<RMLElement>> ret;
+	ret.resize(count);
+
+	for (int i = 0; i < count; i++) {
+		ElementRef ref = ElementRef(element->GetChild(i));
+		ret[i] = RMLElement::ref(ref);
+	}
+
+	return ret;
+}
+
+void RMLElement::clear_children() {
+	ENSURE_VALID(this);
+	int count = element->GetNumChildren();
+	for (int i = count - 1; i >= 0; i--) {
+		element->RemoveChild(element->GetChild(i));
+	}
+}
+
+void RMLElement::set_attribute(const String &p_name, const Variant &p_val) {
+	ENSURE_VALID(this);
+	element->SetAttribute(
+		godot_to_rml_string(p_name), 
+		godot_to_rml_variant(p_val)
+	);
+}
+
+Variant RMLElement::get_attribute(const String &p_name, const Variant &p_default) const {
+	ENSURE_VALID_V(this, Variant());
+	return rml_to_godot_variant(element->GetAttribute(
+		godot_to_rml_string(p_name),
+		godot_to_rml_variant(p_default)
+	));
+}
+
+void RMLElement::remove_attribute(const String &p_name) {
+	ENSURE_VALID(this);
+	element->RemoveAttribute(godot_to_rml_string(p_name));
+}
+
+void RMLElement::set_property(const String &p_name, const String &p_val) {
+	ENSURE_VALID(this);
+	element->SetProperty(
+		godot_to_rml_string(p_name), 
+		godot_to_rml_string(p_val)
+	);
+}
+
+String RMLElement::get_property(const String &p_name, const String &p_default) const {
+	ENSURE_VALID_V(this, Variant());
+	const Rml::Property *prop = element->GetProperty(godot_to_rml_string(p_name));
+	if (prop == nullptr) {
+		return p_default;
+	}
+	return rml_to_godot_string(prop->ToString());
+}
+
+void RMLElement::remove_property(const String &p_name) {
+	ENSURE_VALID(this);
+	element->RemoveProperty(godot_to_rml_string(p_name));
+}
+
+String RMLElement::get_tag_name() const {
+	ENSURE_VALID_V(this, String());
+	return rml_to_godot_string(element->GetTagName());
+}
+
+void RMLElement::set_text_content(const String &p_text) {
+	ENSURE_VALID(this);
+	clear_children();
+
+	element->AppendChild(
+		element->GetOwnerDocument()->CreateTextNode(godot_to_rml_string(p_text))
+	);
+}
+
+void RMLElement::set_inner_rml(const String &p_rml) {
+	ENSURE_VALID(this);
+
+	element->SetInnerRML(godot_to_rml_string(p_rml));
+}
+
+Ref<RMLElement> RMLElement::ref(ElementRef &ref) {
+	Ref<RMLElement> ret;
+	ret.instantiate();
+	ret->element = ref;
+	return ret;
+}
+
+void RMLElement::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("append_child", "child"), &RMLElement::append_child);
+	ClassDB::bind_method(D_METHOD("remove_child", "child"), &RMLElement::remove_child);
+
+	ClassDB::bind_method(D_METHOD("query_selector", "selector"), &RMLElement::query_selector);
+	ClassDB::bind_method(D_METHOD("query_selector_all", "selector"), &RMLElement::query_selector_all);
+	ClassDB::bind_method(D_METHOD("get_child_count"), &RMLElement::get_child_count);
+	ClassDB::bind_method(D_METHOD("get_child", "index"), &RMLElement::get_child);
+	ClassDB::bind_method(D_METHOD("get_children"), &RMLElement::get_children);
+	ClassDB::bind_method(D_METHOD("clear_children"), &RMLElement::clear_children);
+
+	ClassDB::bind_method(D_METHOD("set_attribute", "name", "value"), &RMLElement::set_attribute);
+	ClassDB::bind_method(D_METHOD("get_attribute", "name", "default_value"), &RMLElement::get_attribute, DEFVAL(Variant()));
+	ClassDB::bind_method(D_METHOD("remove_attribute", "name"), &RMLElement::remove_attribute);
+
+	ClassDB::bind_method(D_METHOD("set_property", "name", "value"), &RMLElement::set_property);
+	ClassDB::bind_method(D_METHOD("get_property", "name", "default_value"), &RMLElement::get_property, DEFVAL(String()));
+	ClassDB::bind_method(D_METHOD("remove_property", "name"), &RMLElement::remove_property);
+
+	ClassDB::bind_method(D_METHOD("get_tag_name"), &RMLElement::get_tag_name);
+
+	ClassDB::bind_method(D_METHOD("set_text_content", "text"), &RMLElement::set_text_content);
+	ClassDB::bind_method(D_METHOD("set_inner_rml", "rml"), &RMLElement::set_inner_rml);
+}
+

@@ -6,22 +6,19 @@ namespace godot {
 
 class RenderInterfaceGodot: public Rml::RenderInterface {
 private:
-    class GeometryData {
-    public:
+    struct GeometryData {
         PackedInt32Array indices;
         PackedVector2Array points;
         PackedColorArray colors;
         PackedVector2Array uvs;
     };
 
-    class TextureData {
-    public:
+    struct TextureData {
         bool is_generated;
         RID rid;
     };
 
     struct ContextRenderState {
-    public:
         RID canvas_item;
     };
 

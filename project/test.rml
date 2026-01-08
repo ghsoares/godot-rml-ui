@@ -1,0 +1,14 @@
+<rml>
+<head>
+	<style>
+		span {
+			font-family: "Open Sans";
+			white-space: nowrap;
+			font-size: '64px';
+		}
+	</style>
+</head>
+<body>
+	<span>Hello from RML!</span>
+</body>
+</rml>
