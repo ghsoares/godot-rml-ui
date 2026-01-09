@@ -13,13 +13,3 @@ func get_rml_tree_string(el: RMLElement, depth: int = 0, tab = "\t") -> String:
 
 func _ready() -> void:
 	load_from_path("res://test.rml")
-	pass
-	
-	
-	
-	
-	
-	
-	
-	
-	

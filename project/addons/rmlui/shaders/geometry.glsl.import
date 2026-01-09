@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://c0yxrd36134kx"
+path="res://.godot/imported/geometry.glsl-f1f16cd5a23348952b8b25c4396023c7.res"
+
+[deps]
+
+source_file="res://addons/rmlui/shaders/geometry.glsl"
+dest_files=["res://.godot/imported/geometry.glsl-f1f16cd5a23348952b8b25c4396023c7.res"]
+
+[params]
+

@@ -6,6 +6,7 @@
 #include <RmlUi/Core.h>
 
 #include "../element/rml_element.h"
+#include "../rendering/context_render_state.h"
 
 namespace godot {
 
@@ -25,13 +26,17 @@ class RMLServer: public Object {
 		Rml::Context *ctx;
 		Rml::ElementDocument *doc;
 		RID canvas_item;
+		RID render_target;
+		RID render_target_rd;
+		bool render_target_dirty = true;
 	};
 
 	RID_Owner<DocumentData> document_owner;
 
-	void render_pre_frame();
+	void render();
 
 	RID initialize_document(const RID &p_canvas_item);
+	void free_render_target(const RID &p_rid, const RID &p_rid_rd);
 protected:
 	static void _bind_methods();
 	
@@ -39,6 +44,9 @@ public:
 	static RMLServer *get_singleton();
 
 	bool is_initialized() const { return initialized; }
+
+	void initialize();
+	void uninitialize();
 
 	RID create_document(const RID &p_canvas_item);
 	RID create_document_from_rml_string(const RID &p_canvas_item, const String &p_string);
@@ -55,8 +63,6 @@ public:
 	bool load_font_face_from_buffer(const PackedByteArray &p_buffer, const String &p_family, bool p_fallback_face = false, bool p_is_italic = false);
 
 	void free_rid(const RID &p_rid);
-
-	void initialize();
 
 	RMLServer();
 };

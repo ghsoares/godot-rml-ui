@@ -5,6 +5,8 @@
 #include "rml_element.h"
 #include "rml_document.h"
 
+#include "../util.h"
+
 using namespace godot;
 
 void RMLDocument::_notification(int p_what) {
@@ -32,18 +34,27 @@ void RMLDocument::_gui_input(const Ref<InputEvent> &p_event) {
 
 void RMLDocument::new_document() {
 	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	if (rid.is_valid()) {
+		RMLServer::get_singleton()->free_rid(rid);
+	}
 	rid = RMLServer::get_singleton()->create_document(get_canvas_item());
 	RMLServer::get_singleton()->document_set_size(rid, get_size());
 }
 
 void RMLDocument::load_from_rml_string(const String &p_rml) {
 	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	if (rid.is_valid()) {
+		RMLServer::get_singleton()->free_rid(rid);
+	}
 	rid = RMLServer::get_singleton()->create_document_from_rml_string(get_canvas_item(), p_rml);
 	RMLServer::get_singleton()->document_set_size(rid, get_size());
 }
 
 void RMLDocument::load_from_path(const String &p_path) {
 	if (!RMLServer::get_singleton()->is_initialized()) { return; }
+	if (rid.is_valid()) {
+		RMLServer::get_singleton()->free_rid(rid);
+	}
 	rid = RMLServer::get_singleton()->create_document_from_path(get_canvas_item(), p_path);
 	RMLServer::get_singleton()->document_set_size(rid, get_size());
 }

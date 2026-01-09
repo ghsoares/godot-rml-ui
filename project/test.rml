@@ -7,8 +7,6 @@
 	</style>
 </head>
 <body>
-	<button>
-		<span>Click me!</span>
-	</button>
+	<button>Test Button</button>
 </body>
 </rml>

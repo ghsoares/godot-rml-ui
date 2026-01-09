@@ -1,24 +1,25 @@
-[gd_scene format=3 uid="uid://djfrrj5e8u1u1"]
+[gd_scene load_steps=2 format=3 uid="uid://djfrrj5e8u1u1"]
 
-[ext_resource type="Script" uid="uid://xhcpmq22diop" path="res://test.gd" id="1_37kl0"]
+[ext_resource type="Script" uid="uid://b6s5y72kvuolt" path="res://test.gd" id="1_37kl0"]
 
-[node name="test" type="HBoxContainer" unique_id=765118717]
+[node name="test" type="HBoxContainer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="RMLDocument" type="RMLDocument" parent="." unique_id=487280113]
+[node name="RMLDocument" type="RMLDocument" parent="."]
+custom_minimum_size = Vector2(128, 32)
 layout_mode = 2
 size_flags_horizontal = 3
 script = ExtResource("1_37kl0")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=987817454]
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Button" type="Button" parent="VBoxContainer" unique_id=1249495552]
+[node name="Button" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 text = "Test Button"
