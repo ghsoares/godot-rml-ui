@@ -105,6 +105,8 @@ public:
 	void set_text_content(const String &p_text);
 	void set_inner_rml(const String &p_rml);
 
+	Rml::Element *get_element() const;
+
 	static Ref<RMLElement> ref(ElementRef &ref);
 	static Ref<RMLElement> empty();
 

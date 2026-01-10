@@ -22,6 +22,7 @@ protected:
 public:
 	void _notification(int p_what);
 	void _gui_input(const Ref<InputEvent> &p_event);
+	void _unhandled_key_input(const Ref<InputEvent> &p_event);
 
 	void new_document();
 	void load_from_rml_string(const String &p_rml);

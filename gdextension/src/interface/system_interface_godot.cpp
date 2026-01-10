@@ -91,11 +91,17 @@ void SystemInterfaceGodot::GetClipboardText(Rml::String& text) {
 }
 
 void SystemInterfaceGodot::ActivateKeyboard(Rml::Vector2f caret_position, float line_height) {
+	if (!DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_VIRTUAL_KEYBOARD)) {
+		return;
+	}
 	DisplayServer::get_singleton()->virtual_keyboard_show(
 		"", Rect2(caret_position.x, caret_position.y, 0, 0)
 	);
 }
 
 void SystemInterfaceGodot::DeactivateKeyboard() {
+	if (!DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_VIRTUAL_KEYBOARD)) {
+		return;
+	}
 	DisplayServer::get_singleton()->virtual_keyboard_hide();
 }

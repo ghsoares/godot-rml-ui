@@ -1,12 +1,8 @@
 <rml>
 <head>
-	<style>
-	
-	
-
-	</style>
+	<!-- <link type="text/rcss" href="test.rcss"/> -->
 </head>
 <body>
-	<button>Test Button</button>
+	<button class="godot-button my-btn">Click me!</button>
 </body>
 </rml>

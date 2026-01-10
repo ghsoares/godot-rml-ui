@@ -63,10 +63,8 @@ void initialize_gdex_module(ModuleInitializationLevel p_level) {
 void uninitialize_gdex_module(ModuleInitializationLevel p_level) {
 	switch (p_level) {
 		case MODULE_INITIALIZATION_LEVEL_SERVERS: {
-			memdelete(rml_server);
-		} break;
-		case MODULE_INITIALIZATION_LEVEL_CORE: {
 			uninitialize_rmlui();
+			memdelete(rml_server);
 		} break;
 		default: break;
 	}

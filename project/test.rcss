@@ -1,0 +1,17 @@
+@keyframes rotation_3d {
+	0% {
+		transform: rotateY(0deg);
+	},
+	to {
+		transform: rotateY(360deg);
+	}
+}
+
+body {
+	perspective: 3000dp;
+}
+
+.my-btn {
+	animation: 2s rotation_3d infinite; 
+	perspective: 23rem;
+}

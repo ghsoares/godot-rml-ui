@@ -175,6 +175,10 @@ void RMLElement::set_inner_rml(const String &p_rml) {
 	element->SetInnerRML(godot_to_rml_string(p_rml));
 }
 
+Rml::Element *RMLElement::get_element() const {
+	return element.get();
+}
+
 Ref<RMLElement> RMLElement::ref(ElementRef &ref) {
 	Ref<RMLElement> ret;
 	ret.instantiate();

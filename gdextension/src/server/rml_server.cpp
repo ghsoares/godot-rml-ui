@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/font_file.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include "../interface/render_interface_godot.h"
@@ -60,6 +61,8 @@ RID RMLServer::initialize_document(const RID &p_canvas_item) {
 		document_owner.free(new_rid);
 		ERR_FAIL_V_MSG(RID(), "Couldn't create the context");
 	}
+
+	doc_data->render_target = memnew(RenderTarget);
 
 	return new_rid;
 }
@@ -149,7 +152,6 @@ void RMLServer::document_set_size(const RID &p_document, const Vector2i &p_size)
 		p_size.x,
 		p_size.y
 	));
-	doc_data->render_target_dirty = true;
 }
 
 bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEvent> &p_event) {
@@ -157,28 +159,73 @@ bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEve
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL_V(doc_data, false);
 	
-	Ref<InputEventMouseButton> mb = p_event;
-	Ref<InputEventMouseMotion> mm = p_event;
+	Ref<InputEventKey> k = p_event;
+	if (k.is_valid()) {
+		if (k->is_pressed()) {
+			bool propagated = doc_data->ctx->ProcessKeyDown(
+				godot_to_rml_key(k->get_keycode()), 
+				godot_to_rml_key_modifiers(k->get_modifiers_mask())
+			);
+			char32_t c = k->get_unicode();
+			if (c >= 0 && c <= 255 && !(k->get_modifiers_mask() & KeyModifierMask::KEY_MASK_CTRL)) {
+				propagated &= doc_data->ctx->ProcessTextInput(c);
+			}
+			return !propagated;
+		}
+		return !doc_data->ctx->ProcessKeyUp(
+			godot_to_rml_key(k->get_keycode()), 
+			godot_to_rml_key_modifiers(k->get_modifiers_mask())
+		);
+	}
 
+	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid()) {
 		if (mb->is_pressed()) {
-			return !doc_data->ctx->ProcessMouseButtonDown(
-				mb->get_button_index() - 1,
-				0
+			switch (mb->get_button_index()) {
+				case MouseButton::MOUSE_BUTTON_LEFT: return !doc_data->ctx->ProcessMouseButtonDown(
+					0,
+					godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+				);
+				case MouseButton::MOUSE_BUTTON_RIGHT: return !doc_data->ctx->ProcessMouseButtonDown(
+					1,
+					godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+				);
+				case MouseButton::MOUSE_BUTTON_MIDDLE: return !doc_data->ctx->ProcessMouseButtonDown(
+					2,
+					godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+				);
+				case MouseButton::MOUSE_BUTTON_WHEEL_UP: return !doc_data->ctx->ProcessMouseWheel(
+					1.0,
+					godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+				);
+				case MouseButton::MOUSE_BUTTON_WHEEL_DOWN: return !doc_data->ctx->ProcessMouseWheel(
+					-1.0,
+					godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+				);
+			}
+		}
+		switch (mb->get_button_index()) {
+			case MouseButton::MOUSE_BUTTON_LEFT: return !doc_data->ctx->ProcessMouseButtonUp(
+				0,
+				godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 			);
-		} else {
-			return !doc_data->ctx->ProcessMouseButtonUp(
-				mb->get_button_index() - 1,
-				0
+			case MouseButton::MOUSE_BUTTON_RIGHT: return !doc_data->ctx->ProcessMouseButtonUp(
+				1,
+				godot_to_rml_key_modifiers(mb->get_modifiers_mask())
+			);
+			case MouseButton::MOUSE_BUTTON_MIDDLE: return !doc_data->ctx->ProcessMouseButtonUp(
+				2,
+				godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 			);
 		}
 	}
 
+	Ref<InputEventMouseMotion> mm = p_event;
 	if (mm.is_valid()) {
 		return !doc_data->ctx->ProcessMouseMove(
 			mm->get_position().x,
             mm->get_position().y,
-            0
+            godot_to_rml_key_modifiers(mm->get_modifiers_mask())
 		);
 	}
 
@@ -208,9 +255,13 @@ bool RMLServer::load_font_face_from_buffer(const PackedByteArray &p_buffer, cons
 	);
 }
 
-void RMLServer::free_render_target(const RID &p_rid, const RID &p_rid_rd) {
+void RMLServer::free_render_target(uint64_t p_target) {
+	RenderTarget *target = reinterpret_cast<RenderTarget *>(p_target);
+
 	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
-	ri->free_render_target(p_rid, p_rid_rd);
+	ri->free_render_target(target);
+
+	memdelete(target);
 }
 
 void RMLServer::free_rid(const RID &p_rid) {
@@ -219,8 +270,8 @@ void RMLServer::free_rid(const RID &p_rid) {
 		Rml::RemoveContext(doc_data->ctx->GetName());
 
 		RenderingServer *rs = RenderingServer::get_singleton();
-		if (doc_data->render_target.is_valid()) {
-			rs->call_on_render_thread(callable_mp(this, &RMLServer::free_render_target).bind(doc_data->render_target, doc_data->render_target_rd));
+		if (doc_data->render_target->is_valid()) {
+			rs->call_on_render_thread(callable_mp(this, &RMLServer::free_render_target).bind(reinterpret_cast<uint64_t>(doc_data->render_target)));
 		}
 
 		document_owner.free(p_rid);
@@ -248,20 +299,22 @@ void RMLServer::render() {
 			doc->ctx->GetDimensions().x,
 			doc->ctx->GetDimensions().y
 		);
-
-		if (doc->render_target_dirty) {
-			doc->render_target_dirty = false;
-			ri->allocate_render_target(doc->render_target, doc->render_target_rd, size);
+		if (size.x <= 0 || size.y <= 0) {
+			continue;
 		}
+
+		doc->render_target->desired_size = size;
 
 		ri->set_render_target(doc->render_target);
 		doc->ctx->Render();
-		rs->canvas_item_add_texture_rect(
-			doc->canvas_item, 
-			Rect2(0, 0, size.x, size.y),
-			doc->render_target_rd
-		);
-		ri->set_render_target(RID());
+		ri->set_render_target(nullptr);
+		if (doc->render_target->rendered_geometry()) {
+			rs->canvas_item_add_texture_rect(
+				doc->canvas_item, 
+				Rect2(0, 0, size.x, size.y),
+				doc->render_target->get_texture()
+			);
+		}
 	}
 }
 

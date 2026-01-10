@@ -1,6 +1,9 @@
 #include <iostream>
 #include <sstream>
 
+#include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/input_event_key.hpp>
+
 #include "../server/rml_server.h"
 #include "rml_element.h"
 #include "rml_document.h"
@@ -23,6 +26,15 @@ void RMLDocument::_notification(int p_what) {
 				get_size().y
 			));
 		} break;
+		case NOTIFICATION_MOUSE_EXIT: {
+			Ref<InputEventMouseMotion> mm;
+			mm.instantiate();
+			mm->set_position(Vector2(INFINITY, INFINITY));
+			RMLServer::get_singleton()->document_process_event(rid, mm);
+		} break;
+		case NOTIFICATION_FOCUS_EXIT: {
+
+		} break;
 	}
 }
 
@@ -30,6 +42,10 @@ void RMLDocument::_gui_input(const Ref<InputEvent> &p_event) {
 	if (RMLServer::get_singleton()->document_process_event(rid, p_event)) {
 		accept_event();
 	}
+}
+
+void RMLDocument::_unhandled_key_input(const Ref<InputEvent> &p_event) {
+	
 }
 
 void RMLDocument::new_document() {
@@ -77,6 +93,7 @@ void RMLDocument::_bind_methods() {
 }
 
 RMLDocument::RMLDocument() { 
+	set_focus_mode(FocusMode::FOCUS_ALL);
 	new_document();
 }
 

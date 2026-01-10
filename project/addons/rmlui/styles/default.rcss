@@ -94,23 +94,33 @@ thead, tbody, tfoot
 
 body {
 	font-family: 'Open Sans';
-	font-weight: bold;
+	font-weight: 600;
 	font-size: 16px;
+	color: #dfdfdf;
 	width: 100%;
 	height: 100%;
 }
 
-button {
+button.godot-button {
 	display: inline-block;
 	white-space: nowrap;
-	background-color: rgba(26, 26, 26, 153);
-	padding: 6px 2px;
+	background-color: #1a1a1a99;
+	padding: 6px 4px;
 	box-sizing: border-box;
 	border-radius: 2px;
-
-	transition: transform 0.25s elastic-out;
 }
 
-button:hover {
-	transform: scale(2.0);
+button.godot-button:hover {
+	background-color: #39393999;
+	color: #f2f2f2;
+}
+
+button.godot-button:active {
+	background-color: #00000099;
+	color: #ffffff;
+}
+
+button.godot-button:disabled {
+	background-color: #1a1a1a4d;
+	color: #dfdfdf80;
 }
