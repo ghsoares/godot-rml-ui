@@ -26,6 +26,8 @@
 
 using namespace godot;
 
+using RD = RenderingDevice;
+
 RenderInterfaceGodot *RenderInterfaceGodot::singleton = nullptr;
 
 RenderInterfaceGodot *RenderInterfaceGodot::get_singleton() {
@@ -36,91 +38,77 @@ void RenderInterfaceGodot::initialize() {
     RenderingServer *rs = RenderingServer::get_singleton();
     RenderingDevice *rd = rs->get_rendering_device();
 
-    load_shader_from_path("__render_interface_blit_shader", "res://addons/rmlui/shaders/blit.glsl");
-    load_shader_from_path("__render_interface_geometry_shader", "res://addons/rmlui/shaders/geometry.glsl");
+    internal_rendering_resources = RenderingResources(rd);
+    rendering_resources = RenderingResources(rd);
 
-    Ref<RDSamplerState> sampler_state;
-    sampler_state.instantiate();
+    Ref<RDVertexAttribute> pos_attr = memnew(RDVertexAttribute);
+    pos_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32_SFLOAT);
+    pos_attr->set_location(0);
+    pos_attr->set_stride(4 * 2); // 4 bytes * 2 members (xy)
 
-    sampler_state->set_min_filter(RenderingDevice::SAMPLER_FILTER_NEAREST);
-    sampler_state->set_mag_filter(RenderingDevice::SAMPLER_FILTER_NEAREST);
-    sampler_state->set_repeat_u(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-    sampler_state->set_repeat_v(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-    sampler_state->set_repeat_w(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+    Ref<RDVertexAttribute> color_attr = memnew(RDVertexAttribute);
+    color_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
+    color_attr->set_location(1);
+    color_attr->set_stride(4 * 4); // 4 bytes * 4 members (rgba)
 
-    nearest_sampler = rd->sampler_create(sampler_state);
+    Ref<RDVertexAttribute> uv_attr = memnew(RDVertexAttribute);
+    uv_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32_SFLOAT);
+    uv_attr->set_location(2);
+    uv_attr->set_stride(4 * 2); // 4 bytes * 2 members (xy)
 
-    sampler_state->set_min_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
-    sampler_state->set_mag_filter(RenderingDevice::SAMPLER_FILTER_LINEAR);
-    sampler_state->set_repeat_u(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-    sampler_state->set_repeat_v(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
-    sampler_state->set_repeat_w(RenderingDevice::SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE);
+    Ref<RDAttachmentFormat> attachment0 = memnew(RDAttachmentFormat), attachment1 = memnew(RDAttachmentFormat);
 
-    linear_sampler = rd->sampler_create(sampler_state);
+    attachment0->set_format(RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM);
+    attachment1->set_format(RenderingDevice::DATA_FORMAT_R8_UINT);
+    attachment0->set_usage_flags(RenderingDevice::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT);
+    attachment1->set_usage_flags(RenderingDevice::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT);
 
-    Ref<RDTextureFormat> tex_format;
-    Ref<RDTextureView> tex_view;
-    tex_format.instantiate();
-    tex_view.instantiate();
-    tex_format->set_texture_type(RenderingDevice::TEXTURE_TYPE_2D);
-    tex_format->set_width(4);
-    tex_format->set_height(4);
-    tex_format->set_format(RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM);
-    tex_format->set_usage_bits(RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT);
+    color_and_alpha_framebuffer_format = rd->framebuffer_format_create({ attachment0, attachment1 });
+    geometry_vertex_format = rd->vertex_format_create({ pos_attr, color_attr, uv_attr });
+
+    shader_blit = internal_rendering_resources.create_shader({
+        {"path", "res://addons/rmlui/shaders/blit.glsl"},
+        {"name", "__render_interface_blit_shader"}
+    });
+    shader_geometry = internal_rendering_resources.create_shader({
+        {"path", "res://addons/rmlui/shaders/geometry.glsl"},
+        {"name", "__render_interface_geometry_shader"}
+    });
+
+    pipeline_blit = internal_rendering_resources.create_pipeline({
+        {"shader", shader_blit},
+        {"framebuffer_format", color_and_alpha_framebuffer_format},
+        {"attachment_count", 2}
+    });
+    pipeline_geometry = internal_rendering_resources.create_pipeline({
+        {"shader", shader_geometry},
+        {"framebuffer_format", color_and_alpha_framebuffer_format},
+        {"vertex_format", geometry_vertex_format},
+        {"attachment_count", 2}
+    });
+
+    sampler_nearest = internal_rendering_resources.create_sampler({});
+    sampler_linear = internal_rendering_resources.create_sampler({
+        {"min_filter", RD::SAMPLER_FILTER_LINEAR},
+        {"mag_filter", RD::SAMPLER_FILTER_LINEAR}
+    });
 
     PackedByteArray white_texture_buf;
     white_texture_buf.resize(4 * 4 * 4); // width * height * rgba
     white_texture_buf.fill(255);
 
-    white_texture = rd->texture_create(tex_format, tex_view, { white_texture_buf });
+    texture_white = internal_rendering_resources.create_texture({
+        {"texture_type", RenderingDevice::TEXTURE_TYPE_2D},
+        {"width", 4},
+        {"height", 4},
+        {"format", RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM},
+        {"usage_bits", RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT},
+        {"data", TypedArray<PackedByteArray>({white_texture_buf})}
+    });
 }
 
 void RenderInterfaceGodot::uninitialize() {
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
-
-    unload_shader("__render_interface_blit_shader");
-    unload_shader("__render_interface_geometry_shader");
-
-    rd->free_rid(nearest_sampler);
-    rd->free_rid(linear_sampler);
-    rd->free_rid(white_texture);
-}
-
-RID RenderInterfaceGodot::load_shader_from_path(const String &p_name, const String &p_path) {
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
-
-    Ref<RDShaderFile> shader_file = ResourceLoader::get_singleton()->load(p_path);
-    ERR_FAIL_COND_V(!shader_file.is_valid(), RID());
-
-    Ref<RDShaderSPIRV> shader_spirv = shader_file->get_spirv();
-    ERR_FAIL_COND_V(!shader_spirv.is_valid(), RID());
-
-    RID shader = rd->shader_create_from_spirv(shader_spirv, p_name);
-    ERR_FAIL_COND_V(!shader.is_valid(), RID());
-
-    shaders.insert({p_name, shader});
-
-    return shader;
-}
-
-RID RenderInterfaceGodot::get_shader(const String &p_name) {
-    auto it = shaders.find(p_name);
-    if (it == shaders.end()) {
-        ERR_FAIL_V_MSG(RID(), vformat("Shader of name '%s' not found", p_name));
-    }
-    return it->second;
-}
-
-void RenderInterfaceGodot::unload_shader(const String &p_name) {
-    RID shader = get_shader(p_name);
-    ERR_FAIL_COND(!shader.is_valid());
-
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
-    
-    rd->free_rid(shader);
+    internal_rendering_resources.free_all_resources();
 }
 
 void RenderInterfaceGodot::allocate_render_target(RenderTarget *p_target) {
@@ -129,162 +117,114 @@ void RenderInterfaceGodot::allocate_render_target(RenderTarget *p_target) {
     }
 
     RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
 
     free_render_target(p_target);
 
-    Ref<RDTextureFormat> main_tex_format;
-    Ref<RDTextureFormat> alpha_tex_format;
-    Ref<RDTextureView> tex_view;
-    main_tex_format.instantiate();
-    alpha_tex_format.instantiate();
-    tex_view.instantiate();
-    
-    main_tex_format->set_texture_type(RenderingDevice::TEXTURE_TYPE_2D);
-    main_tex_format->set_width(p_target->desired_size.x);
-    main_tex_format->set_height(p_target->desired_size.x);
-    main_tex_format->set_format(RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM);
-    main_tex_format->set_usage_bits(RenderingDevice::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_TO_BIT);
-
-    alpha_tex_format->set_texture_type(RenderingDevice::TEXTURE_TYPE_2D);
-    alpha_tex_format->set_width(p_target->desired_size.x);
-    alpha_tex_format->set_height(p_target->desired_size.x);
-    alpha_tex_format->set_format(RenderingDevice::DATA_FORMAT_R8_UINT);
-    alpha_tex_format->set_usage_bits(RenderingDevice::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_TO_BIT);
-
-    p_target->main_tex0 = rd->texture_create(main_tex_format, tex_view);
-    p_target->main_tex1 = rd->texture_create(main_tex_format, tex_view);
-    p_target->alpha_tex0 = rd->texture_create(alpha_tex_format, tex_view);
-    p_target->alpha_tex1 = rd->texture_create(alpha_tex_format, tex_view);
+    uint64_t main_usage = RenderingDevice::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT;
+    p_target->main_tex0 = rendering_resources.create_texture({
+        {"width", p_target->desired_size.x},
+        {"height", p_target->desired_size.y},
+        {"format", RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM},
+        {"usage_bits", main_usage},
+    });
+    p_target->main_tex1 = rendering_resources.create_texture({
+        {"width", p_target->desired_size.x},
+        {"height", p_target->desired_size.y},
+        {"format", RenderingDevice::DATA_FORMAT_R8G8B8A8_UNORM},
+        {"usage_bits", main_usage},
+    });
+    p_target->alpha_tex0 = rendering_resources.create_texture({
+        {"width", p_target->desired_size.x},
+        {"height", p_target->desired_size.y},
+        {"format", RenderingDevice::DATA_FORMAT_R8_UINT},
+        {"usage_bits", main_usage},
+    });
+    p_target->alpha_tex1 = rendering_resources.create_texture({
+        {"width", p_target->desired_size.x},
+        {"height", p_target->desired_size.y},
+        {"format", RenderingDevice::DATA_FORMAT_R8_UINT},
+        {"usage_bits", main_usage},
+    });
     p_target->main_tex_canvas_item = rs->texture_rd_create(p_target->main_tex0);
 
-    p_target->framebuffer0 = rd->framebuffer_create({ p_target->main_tex0, p_target->alpha_tex0 });
-    p_target->framebuffer1 = rd->framebuffer_create({ p_target->main_tex1, p_target->alpha_tex1 });
+    p_target->framebuffer0 = rendering_resources.create_framebuffer({
+        {"textures", TypedArray<RID>({ p_target->main_tex0, p_target->alpha_tex0 })}
+    });
+    p_target->framebuffer1 = rendering_resources.create_framebuffer({
+        {"textures", TypedArray<RID>({ p_target->main_tex1, p_target->alpha_tex1 })}
+    });
 
     p_target->current_size = p_target->desired_size;
 }
 
 void RenderInterfaceGodot::blit_render_target(RenderTarget *p_target) {
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
+    ERR_FAIL_COND(!shader_blit.is_valid() || !pipeline_blit.is_valid());
 
-    RID blit_shader = get_shader("__render_interface_blit_shader");
-    ERR_FAIL_COND(!blit_shader.is_valid());
+    RenderingDevice *rd = rendering_resources.device();
 
-    int render_target_format = rd->framebuffer_get_format(p_target->framebuffer0);
-
-    Ref<RDPipelineRasterizationState> rasterization_state;
-    Ref<RDPipelineMultisampleState> multisample_state;
-    Ref<RDPipelineDepthStencilState> depth_stencil_state;
-    Ref<RDPipelineColorBlendState> color_blend_state;
-    Ref<RDPipelineColorBlendStateAttachment> color_attachment0;
-    Ref<RDPipelineColorBlendStateAttachment> color_attachment1;
-    rasterization_state.instantiate();
-    multisample_state.instantiate();
-    depth_stencil_state.instantiate();
-    color_blend_state.instantiate();
-    color_attachment0.instantiate();
-    color_attachment1.instantiate();
-    color_blend_state->set_attachments({ color_attachment0, color_attachment1 });
-
-    RID pipeline = rd->render_pipeline_create(
-        blit_shader, 
-        render_target_format, 
-        -1,
-        RenderingDevice::RENDER_PRIMITIVE_TRIANGLES,
-        rasterization_state,
-        multisample_state,
-        depth_stencil_state,
-        color_blend_state
-    );
-
-    Ref<RDUniform> screen_texture_uniform, screen_alpha_uniform;
-    screen_texture_uniform.instantiate();
-    screen_alpha_uniform.instantiate();
+    Ref<RDUniform> screen_texture_uniform = memnew(RDUniform);
+    Ref<RDUniform> screen_alpha_uniform = memnew(RDUniform);
 
     screen_texture_uniform->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
     screen_texture_uniform->set_binding(0);
-    screen_texture_uniform->add_id(nearest_sampler);
+    screen_texture_uniform->add_id(sampler_nearest);
     screen_texture_uniform->add_id(p_target->main_tex1);
     
     screen_alpha_uniform->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
     screen_alpha_uniform->set_binding(1);
-    screen_alpha_uniform->add_id(nearest_sampler);
+    screen_alpha_uniform->add_id(sampler_nearest);
     screen_alpha_uniform->add_id(p_target->alpha_tex1);
 
-    RID uniform_set = UniformSetCacheRD::get_cache(blit_shader, 0, { screen_texture_uniform, screen_alpha_uniform });
+    RID uniform_set = UniformSetCacheRD::get_cache(shader_blit, 0, { screen_texture_uniform, screen_alpha_uniform });
 
     int draw_list = rd->draw_list_begin(p_target->framebuffer0, RenderingDevice::DRAW_DEFAULT_ALL);
-    rd->draw_list_bind_render_pipeline(draw_list, pipeline);
+    rd->draw_list_bind_render_pipeline(draw_list, pipeline_blit);
     rd->draw_list_bind_uniform_set(draw_list, uniform_set, 0);
     rd->draw_list_draw(draw_list, false, 1, 3);
     rd->draw_list_end();
 }
 
 void RenderInterfaceGodot::set_render_target(RenderTarget *p_target) {
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
-
     render_target_stack.clear();
     if (p_target == nullptr) return;
 
     allocate_render_target(p_target);
 
     p_target->clear = true;
-
     render_target_stack.push_back(p_target);
 }
 
 void RenderInterfaceGodot::free_render_target(RenderTarget *p_target) {
     RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
 
     if (p_target->framebuffer0.is_valid()) {
-        rd->free_rid(p_target->framebuffer0);
+        rendering_resources.free_framebuffer(p_target->framebuffer0);
     }
     if (p_target->framebuffer1.is_valid()) {
-        rd->free_rid(p_target->framebuffer1);
+        rendering_resources.free_framebuffer(p_target->framebuffer1);
     }
 
     if (p_target->main_tex_canvas_item.is_valid()) {
         rs->free_rid(p_target->main_tex_canvas_item);
     }
     if (p_target->main_tex0.is_valid()) {
-        rd->free_rid(p_target->main_tex0);
+        rendering_resources.free_texture(p_target->main_tex0);
     }
     if (p_target->main_tex1.is_valid()) {
-        rd->free_rid(p_target->main_tex1);
+        rendering_resources.free_texture(p_target->main_tex1);
     }
     if (p_target->alpha_tex0.is_valid()) {
-        rd->free_rid(p_target->alpha_tex0);
+        rendering_resources.free_texture(p_target->alpha_tex0);
     }
     if (p_target->alpha_tex1.is_valid()) {
-        rd->free_rid(p_target->alpha_tex1);
+        rendering_resources.free_texture(p_target->alpha_tex1);
     }
 }
 
 Rml::CompiledGeometryHandle RenderInterfaceGodot::CompileGeometry(Rml::Span<const Rml::Vertex> vertices, Rml::Span<const int> indices) {
     MeshData *mesh_data = memnew(MeshData);
 
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
-
-    Ref<RDVertexAttribute> pos_attr, color_attr, uv_attr;
-    pos_attr.instantiate();
-    color_attr.instantiate();
-    uv_attr.instantiate();
-
-    pos_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32_SFLOAT);
-    pos_attr->set_location(0);
-    pos_attr->set_stride(4 * 2); // 4 bytes * 2 members (xy)
-
-    color_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
-    color_attr->set_location(1);
-    color_attr->set_stride(4 * 4); // 4 bytes * 4 members (rgba)
-
-    uv_attr->set_format(RenderingDevice::DATA_FORMAT_R32G32_SFLOAT);
-    uv_attr->set_location(2);
-    uv_attr->set_stride(4 * 2); // 4 bytes * 2 members (xy)
+    RenderingDevice *rd = rendering_resources.device();
 
     PackedByteArray position_array, color_array, uv_array, indices_array;
     position_array.resize(vertices.size() * 2 * 4);
@@ -316,16 +256,30 @@ Rml::CompiledGeometryHandle RenderInterfaceGodot::CompileGeometry(Rml::Span<cons
         index_ptr[i] = indices[i];
     }
 
-    RID position_buffer = rd->vertex_buffer_create(position_array.size(), position_array);
-    RID color_buffer = rd->vertex_buffer_create(color_array.size(), color_array);
-    RID uv_buffer = rd->vertex_buffer_create(uv_array.size(), uv_array);
-    RID index_buffer = rd->index_buffer_create(indices.size(), RenderingDevice::INDEX_BUFFER_FORMAT_UINT32, indices_array);
+    RID position_buffer = rendering_resources.create_vertex_buffer({
+        {"data", position_array}
+    });
+    RID color_buffer = rendering_resources.create_vertex_buffer({
+        {"data", color_array}
+    });
+    RID uv_buffer = rendering_resources.create_vertex_buffer({
+        {"data", uv_array}
+    });
+    RID index_buffer = rendering_resources.create_index_buffer({
+        {"data", indices_array},
+        {"count", index_count},
+        {"format", RD::INDEX_BUFFER_FORMAT_UINT32}
+    });
 
-    TypedArray<Ref<RDVertexAttribute>> vertex_attributes;
-    int64_t vertex_format = rd->vertex_format_create({ pos_attr, color_attr, uv_attr });
-
-    RID vertex_array = rd->vertex_array_create(vertices.size(), vertex_format, { position_buffer, color_buffer, uv_buffer });
-    RID index_array = rd->index_array_create(index_buffer, 0, indices.size());
+    RID vertex_array = rendering_resources.create_vertex_array({
+        {"count", vert_count},
+        {"format", geometry_vertex_format},
+        {"buffers", TypedArray<RID>({position_buffer, color_buffer, uv_buffer})}
+    });
+    RID index_array = rendering_resources.create_index_array({
+        {"count", index_count},
+        {"buffer", index_buffer}
+    });
 
     mesh_data->position_buffer = position_buffer;
     mesh_data->color_buffer = color_buffer;
@@ -333,75 +287,44 @@ Rml::CompiledGeometryHandle RenderInterfaceGodot::CompileGeometry(Rml::Span<cons
     mesh_data->index_buffer = index_buffer;
     mesh_data->vertex_array = vertex_array;
     mesh_data->index_array = index_array;
-    mesh_data->vertex_format = vertex_format;
 
     return reinterpret_cast<uintptr_t>(mesh_data);
 }
 
 void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture) {
+    ERR_FAIL_COND(!shader_geometry.is_valid() || !pipeline_geometry.is_valid());
     ERR_FAIL_COND(render_target_stack.size() == 0);
     RenderTarget *target = render_target_stack.back();
 
     MeshData *mesh_data = reinterpret_cast<MeshData *>(geometry);
     ERR_FAIL_NULL(mesh_data);
-
-    RID geometry_shader = get_shader("__render_interface_geometry_shader");
-    ERR_FAIL_COND(!geometry_shader.is_valid());
     
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RenderingDevice *rd = rs->get_rendering_device();
+    RenderingDevice *rd = rendering_resources.device();
 
-    Ref<RDPipelineRasterizationState> rasterization_state;
-    Ref<RDPipelineMultisampleState> multisample_state;
-    Ref<RDPipelineDepthStencilState> depth_stencil_state;
-    Ref<RDPipelineColorBlendState> color_blend_state;
-    Ref<RDPipelineColorBlendStateAttachment> color_attachment0;
-    Ref<RDPipelineColorBlendStateAttachment> color_attachment1;
-    rasterization_state.instantiate();
-    multisample_state.instantiate();
-    depth_stencil_state.instantiate();
-    color_blend_state.instantiate();
-    color_attachment0.instantiate();
-    color_attachment1.instantiate();
-    color_blend_state->set_attachments({ color_attachment0, color_attachment1 });
-
-    RID pipeline = rd->render_pipeline_create(
-        geometry_shader, 
-        rd->framebuffer_get_format(target->framebuffer1), 
-        mesh_data->vertex_format,
-        RenderingDevice::RENDER_PRIMITIVE_TRIANGLES,
-        rasterization_state,
-        multisample_state,
-        depth_stencil_state,
-        color_blend_state
-    );
-
-    Ref<RDUniform> screen_texture_uniform, screen_alpha_uniform, texture_uniform;
-    screen_texture_uniform.instantiate();
-    screen_alpha_uniform.instantiate();
-    texture_uniform.instantiate();
-
+    Ref<RDUniform> screen_texture_uniform = memnew(RDUniform);
     screen_texture_uniform->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
     screen_texture_uniform->set_binding(0);
-    screen_texture_uniform->add_id(nearest_sampler);
+    screen_texture_uniform->add_id(sampler_nearest);
     screen_texture_uniform->add_id(target->main_tex0);
     
+    Ref<RDUniform> screen_alpha_uniform = memnew(RDUniform);
     screen_alpha_uniform->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
     screen_alpha_uniform->set_binding(1);
-    screen_alpha_uniform->add_id(nearest_sampler);
+    screen_alpha_uniform->add_id(sampler_nearest);
     screen_alpha_uniform->add_id(target->alpha_tex0);
     
+    Ref<RDUniform> texture_uniform = memnew(RDUniform);
     texture_uniform->set_uniform_type(RenderingDevice::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
     texture_uniform->set_binding(2);
-    texture_uniform->add_id(linear_sampler);
+    texture_uniform->add_id(sampler_linear);
     if (texture == 0) {
-        texture_uniform->add_id(white_texture);
+        texture_uniform->add_id(texture_white);
     } else {
         TextureData *tex_data = reinterpret_cast<TextureData *>(texture);
-        texture_uniform->add_id(tex_data->rid_rd);
+        texture_uniform->add_id(tex_data->rid);
     }
 
-    RID uniform_set = UniformSetCacheRD::get_cache(geometry_shader, 0, { screen_texture_uniform, screen_alpha_uniform, texture_uniform });
+    RID uniform_set = UniformSetCacheRD::get_cache(shader_geometry, 0, { screen_texture_uniform, screen_alpha_uniform, texture_uniform });
 
     Projection final_transform = drawing_matrix * Projection(Transform3D(Basis(), Vector3(translation.x, translation.y, 0.0)));
 
@@ -455,7 +378,7 @@ void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, 
         RenderingDevice *rd = rs->get_rendering_device();
         rd->draw_list_disable_scissor(draw_list);
     }
-    rd->draw_list_bind_render_pipeline(draw_list, pipeline);
+    rd->draw_list_bind_render_pipeline(draw_list, pipeline_geometry);
     rd->draw_list_bind_vertex_array(draw_list, mesh_data->vertex_array);
     rd->draw_list_bind_index_array(draw_list, mesh_data->index_array);
     rd->draw_list_bind_uniform_set(draw_list, uniform_set, 0);
@@ -463,8 +386,6 @@ void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, 
 
     rd->draw_list_draw(draw_list, true, 1);
     rd->draw_list_end();
-
-    rd->free_rid(pipeline);
 
     blit_render_target(target);
 }
@@ -476,12 +397,12 @@ void RenderInterfaceGodot::ReleaseGeometry(Rml::CompiledGeometryHandle geometry)
     RenderingServer *rs = RenderingServer::get_singleton();
     RenderingDevice *rd = rs->get_rendering_device();
     
-    rd->free_rid(mesh_data->vertex_array);
-    rd->free_rid(mesh_data->index_array);
-    rd->free_rid(mesh_data->position_buffer);
-    rd->free_rid(mesh_data->color_buffer);
-    rd->free_rid(mesh_data->uv_buffer);
-    rd->free_rid(mesh_data->index_buffer);
+    rendering_resources.free_vertex_array(mesh_data->vertex_array);
+    rendering_resources.free_index_array(mesh_data->index_array);
+    rendering_resources.free_vertex_buffer(mesh_data->position_buffer);
+    rendering_resources.free_vertex_buffer(mesh_data->color_buffer);
+    rendering_resources.free_vertex_buffer(mesh_data->uv_buffer);
+    rendering_resources.free_index_buffer(mesh_data->index_buffer);
 
     memdelete(mesh_data);
 }
@@ -500,8 +421,7 @@ Rml::TextureHandle RenderInterfaceGodot::LoadTexture(Rml::Vector2i& texture_dime
 
     TextureData *tex_data = memnew(TextureData());
     tex_data->tex_ref = tex;
-    tex_data->rid = tex->get_rid();
-    tex_data->rid_rd = rs->texture_get_rd_texture(tex_data->rid);
+    tex_data->rid = rs->texture_get_rd_texture(tex->get_rid());
 
     return reinterpret_cast<uintptr_t>(tex_data);
 }
@@ -514,17 +434,16 @@ Rml::TextureHandle RenderInterfaceGodot::GenerateTexture(Rml::Span<const Rml::by
 
     memcpy(ptrw, source.data(), source.size());
 
-    Ref<Image> img = Image::create_from_data(source_dimensions.x, source_dimensions.y, false, Image::FORMAT_RGBA8, p_data);
-    if (!img.is_valid()) {
-        return 0;
-    }
-
-    RenderingServer *rs = RenderingServer::get_singleton();
-    RID tex_rid = rs->texture_2d_create(img);
+    RenderingDevice *rd = rendering_resources.device();
 
     TextureData *tex_data = memnew(TextureData());
-    tex_data->rid = tex_rid;
-    tex_data->rid_rd = rs->texture_get_rd_texture(tex_data->rid);
+    tex_data->rid = rendering_resources.create_texture({
+        {"width", source_dimensions.x},
+        {"height", source_dimensions.y},
+        {"format", RD::DATA_FORMAT_R8G8B8A8_UNORM},
+        {"usage_bits", RD::TEXTURE_USAGE_SAMPLING_BIT},
+        {"data", TypedArray<PackedByteArray>({ p_data })}
+    });
 
     return reinterpret_cast<uintptr_t>(tex_data);
 }
@@ -533,11 +452,8 @@ void RenderInterfaceGodot::ReleaseTexture(Rml::TextureHandle texture) {
     TextureData *tex_data = reinterpret_cast<TextureData *>(texture);
 
     // Is a generated texture
-    
     if (!tex_data->tex_ref.is_valid()) {
-        RenderingServer *rs = RenderingServer::get_singleton();
-        
-        rs->free_rid(tex_data->rid);
+        rendering_resources.free_texture(tex_data->rid);
     }
     memdelete(tex_data);
 }

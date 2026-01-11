@@ -6,7 +6,7 @@
 #include <RmlUi/Core.h>
 
 #include "../element/rml_element.h"
-#include "../rendering/context_render_state.h"
+#include "../rendering/rendering_utils.h"
 
 namespace godot {
 

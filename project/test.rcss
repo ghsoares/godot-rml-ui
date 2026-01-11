@@ -9,6 +9,7 @@
 
 body {
 	perspective: 3000dp;
+	background-color: red;
 }
 
 .my-btn {

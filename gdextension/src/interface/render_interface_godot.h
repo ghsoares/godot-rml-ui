@@ -3,7 +3,7 @@
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <deque>
 
-#include "../rendering/context_render_state.h"
+#include "../rendering/rendering_utils.h"
 
 namespace godot {
 
@@ -16,11 +16,22 @@ private:
     static RenderInterfaceGodot *singleton;
 
     std::deque<RenderTarget *> render_target_stack;
-    std::map<String, RID> shaders;
+    RenderingResources internal_rendering_resources;
+    RenderingResources rendering_resources;
 
-    RID nearest_sampler;
-    RID linear_sampler;
-    RID white_texture;
+    int64_t color_and_alpha_framebuffer_format;
+    int64_t geometry_vertex_format;
+
+    RID shader_blit;
+    RID shader_geometry;
+
+    RID pipeline_blit;
+    RID pipeline_geometry;
+
+    RID sampler_nearest;
+    RID sampler_linear;
+
+    RID texture_white;
 
     bool scissor_enabled = false;
     Rect2 scissor_region = Rect2();
@@ -37,10 +48,6 @@ public:
     
     void set_render_target(RenderTarget *p_target);
     void free_render_target(RenderTarget *p_target);
-
-    RID load_shader_from_path(const String &p_name, const String &p_path);
-    RID get_shader(const String &p_name);
-    void unload_shader(const String &p_name);
 
 	Rml::CompiledGeometryHandle CompileGeometry(Rml::Span<const Rml::Vertex> vertices, Rml::Span<const int> indices) override;
 	void RenderGeometry(Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture) override;

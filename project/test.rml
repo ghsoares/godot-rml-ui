@@ -1,6 +1,6 @@
 <rml>
 <head>
-	<!-- <link type="text/rcss" href="test.rcss"/> -->
+	<link type="text/rcss" href="test.rcss"/>
 </head>
 <body>
 	<button class="godot-button my-btn">Click me!</button>
