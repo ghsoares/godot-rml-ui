@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://bpvlsngxbq1ix"
+path="res://.godot/imported/clip_mask.glsl-d65324a74ca65e312d6c2704902e6393.res"
+
+[deps]
+
+source_file="res://addons/rmlui/shaders/clip_mask.glsl"
+dest_files=["res://.godot/imported/clip_mask.glsl-d65324a74ca65e312d6c2704902e6393.res"]
+
+[params]
+

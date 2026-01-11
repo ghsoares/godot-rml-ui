@@ -1,18 +1,30 @@
-@keyframes rotation_3d {
+#round {
+	display: block;
+	width: 128px;
+	height: 128px;
+	background-color: green;
+	border-radius: 32px;
+
+	position: relative;
+	overflow: hidden;
+}
+
+@keyframes test_animation {
 	0% {
-		transform: rotateY(0deg);
+		transform: rotate(0deg);
 	},
 	to {
-		transform: rotateY(360deg);
+		transform: rotate(360deg);
 	}
 }
 
-body {
-	perspective: 3000dp;
-	background-color: red;
-}
-
-.my-btn {
-	animation: 2s rotation_3d infinite; 
-	perspective: 23rem;
+#animated {
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	background-color: blue;
+	width: 512px;
+	height: 512px;
+	animation: test_animation 2s infinite;
 }

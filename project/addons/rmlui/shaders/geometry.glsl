@@ -11,6 +11,7 @@ layout(location = 1) out vec4 o_color;
 layout(push_constant, std430) uniform GeometryData {
 	vec2 inv_viewport_size;
 	mat4 transform;
+	bool clip_mask_enabled;
 } geometry_data;
 
 void main() {
@@ -34,9 +35,16 @@ layout(location = 1) in vec4 i_color;
 layout(location = 0) out vec4 o_color;
 layout(location = 1) out uint o_alpha_flag;
 
+layout(push_constant, std430) uniform GeometryData {
+	vec2 inv_viewport_size;
+	mat4 transform;
+	bool clip_mask_enabled;
+} geometry_data;
+
 layout(set = 0, binding = 0) uniform sampler2D screen;
 layout(set = 0, binding = 1) uniform usampler2D screen_alpha;
-layout(set = 0, binding = 2) uniform sampler2D tex;
+layout(set = 0, binding = 2) uniform usampler2D clip_mask;
+layout(set = 0, binding = 3) uniform sampler2D tex;
 
 vec4 blend_mix(in vec4 p_dst, in vec4 p_src) {
 	return vec4(
@@ -50,9 +58,10 @@ void main() {
 	o_alpha_flag = texelFetch(screen_alpha, ivec2(gl_FragCoord.xy), 0).r;
 
 	vec4 pix_color = vec4(vec3(1.0), texture(tex, i_uv).a) * i_color;
+	bool clip = geometry_data.clip_mask_enabled && texelFetch(clip_mask, ivec2(gl_FragCoord.xy), 0).r == 0;
 
 	// Custom alpha blending function, when this pixel is being rendered by the first time,
 	// sets it's color equal to the geometry color, else blend with current color
-	o_color = o_alpha_flag == 0 ? pix_color : blend_mix(o_color, pix_color);
-	o_alpha_flag = 1;
+	o_color = clip ? o_color : o_alpha_flag == 0 ? pix_color : blend_mix(o_color, pix_color);
+	o_alpha_flag = clip ? o_alpha_flag : 1;
 }

@@ -32,6 +32,9 @@ struct RenderTarget {
 	RID framebuffer0;
 	RID framebuffer1;
 
+	RID clip_mask;
+	RID clip_mask_framebuffer;
+
 	bool clear;
 
 	Vector2i current_size;

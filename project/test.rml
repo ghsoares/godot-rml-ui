@@ -3,6 +3,8 @@
 	<link type="text/rcss" href="test.rcss"/>
 </head>
 <body>
-	<button class="godot-button my-btn">Click me!</button>
+	<div id="round">
+		<div id="animated"></div>
+	</div>
 </body>
 </rml>

@@ -19,14 +19,17 @@ private:
     RenderingResources internal_rendering_resources;
     RenderingResources rendering_resources;
 
-    int64_t color_and_alpha_framebuffer_format;
+    int64_t geometry_framebuffer_format;
+    int64_t clip_mask_framebuffer_format;
     int64_t geometry_vertex_format;
 
     RID shader_blit;
     RID shader_geometry;
+    RID shader_clip_mask;
 
     RID pipeline_blit;
     RID pipeline_geometry;
+    RID pipeline_clip_mask;
 
     RID sampler_nearest;
     RID sampler_linear;
@@ -35,6 +38,7 @@ private:
 
     bool scissor_enabled = false;
     Rect2 scissor_region = Rect2();
+    bool clip_mask_enabled = false;
 
     Projection drawing_matrix;
 
@@ -59,6 +63,9 @@ public:
 
     void EnableScissorRegion(bool enable) override;
     void SetScissorRegion(Rml::Rectanglei region) override;
+
+    void EnableClipMask(bool enable);
+    void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation);
 
     void SetTransform(const Rml::Matrix4f* transform) override;
 
