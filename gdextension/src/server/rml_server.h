@@ -12,6 +12,7 @@ namespace godot {
 
 class RMLElement;
 class RMLDocument;
+class RMLEventListener;
 
 class RMLServer: public Object {
 	GDCLASS(RMLServer, Object);

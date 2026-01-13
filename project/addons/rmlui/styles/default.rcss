@@ -101,7 +101,7 @@ body {
 	height: 100%;
 }
 
-button.godot-button {
+button {
 	display: inline-block;
 	white-space: nowrap;
 	background-color: #1a1a1a99;
@@ -110,17 +110,17 @@ button.godot-button {
 	border-radius: 2px;
 }
 
-button.godot-button:hover {
+button:hover {
 	background-color: #39393999;
 	color: #f2f2f2;
 }
 
-button.godot-button:active {
+button:active {
 	background-color: #00000099;
 	color: #ffffff;
 }
 
-button.godot-button:disabled {
+button:disabled {
 	background-color: #1a1a1a4d;
 	color: #dfdfdf80;
 }

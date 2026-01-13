@@ -1,4 +1,5 @@
 #include "rml_element.h"
+#include "rml_event_listener.h"
 #include "../server/rml_server.h"
 #include "../rml_util.h"
 
@@ -155,6 +156,21 @@ void RMLElement::remove_property(const String &p_name) {
 	element->RemoveProperty(godot_to_rml_string(p_name));
 }
 
+void RMLElement::add_event_listener(const String &p_event_id, const Callable &p_listener) {
+	ENSURE_VALID(this);
+	RMLEventListener *listener = RMLEventListener::get_listener(element.get(), p_event_id, p_listener);
+	ERR_FAIL_COND_MSG(listener != nullptr, "Already listening to this event");
+	listener = RMLEventListener::create_listener(element.get(), p_event_id, p_listener);
+}
+
+void RMLElement::remove_event_listener(const String &p_event_id, const Callable &p_listener) {
+	ENSURE_VALID(this);
+	RMLEventListener *listener = RMLEventListener::get_listener(element.get(), p_event_id, p_listener);
+	ERR_FAIL_COND_MSG(listener == nullptr, "Not listening to this event");
+
+	element->RemoveEventListener(godot_to_rml_string(listener->get_event_id()), listener);
+}
+
 String RMLElement::get_tag_name() const {
 	ENSURE_VALID_V(this, String());
 	return rml_to_godot_string(element->GetTagName());
@@ -209,6 +225,9 @@ void RMLElement::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_attribute", "name", "value"), &RMLElement::set_attribute);
 	ClassDB::bind_method(D_METHOD("get_attribute", "name", "default_value"), &RMLElement::get_attribute, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("remove_attribute", "name"), &RMLElement::remove_attribute);
+
+	ClassDB::bind_method(D_METHOD("add_event_listener", "name", "listener"), &RMLElement::add_event_listener);
+	ClassDB::bind_method(D_METHOD("remove_event_listener", "name", "listener"), &RMLElement::remove_event_listener);
 
 	ClassDB::bind_method(D_METHOD("set_property", "name", "value"), &RMLElement::set_property);
 	ClassDB::bind_method(D_METHOD("get_property", "name", "default_value"), &RMLElement::get_property, DEFVAL(String()));

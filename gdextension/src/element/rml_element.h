@@ -100,6 +100,9 @@ public:
 	String get_property(const String &p_name, const String &p_default = String()) const;
 	void remove_property(const String &p_name);
 
+	void add_event_listener(const String &p_event_id, const Callable &p_listener);
+	void remove_event_listener(const String &p_event_id, const Callable &p_listener);
+
 	String get_tag_name() const;
 
 	void set_text_content(const String &p_text);
