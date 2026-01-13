@@ -21,6 +21,7 @@
 #include <godot_cpp/classes/rd_pipeline_color_blend_state_attachment.hpp>
 
 #include <RmlUi/Core/Dictionary.h>
+#include <RmlUi/Core/DecorationTypes.h>
 
 #include <iostream>
 
@@ -35,16 +36,93 @@ const uint64_t SHADER_FILTER_MODULATE = 1;
 const uint64_t SHADER_FILTER_BLUR = 2;
 const uint64_t SHADER_FILTER_DROP_SHADOW = 3;
 const uint64_t SHADER_FILTER_COLOR_MATRIX = 4;
+const uint64_t SHADER_FILTER_MASK = 5;
+
+const uint64_t SHADER_GRADIENT = 16;
 
 const uint64_t PIPELINE_FILTER_MODULATE = 1;
 const uint64_t PIPELINE_FILTER_BLUR = 2;
 const uint64_t PIPELINE_FILTER_DROP_SHADOW = 3;
 const uint64_t PIPELINE_FILTER_COLOR_MATRIX = 4;
+const uint64_t PIPELINE_FILTER_MASK = 4;
+
+const uint64_t PIPELINE_GRADIENT = 16;
+
+Rml::Matrix4f get_final_transform(const Rml::Matrix4f &p_drawing_matrix, const Rml::Vector2f &translation) {
+    return Rml::Matrix4f::Translate(Rml::Vector3f(translation.x, translation.y, 0.0)) * p_drawing_matrix;
+}
+
+void matrix_to_pointer(float *ptr, const Rml::Matrix4f &p_mat) {
+    ptr[0] = p_mat[0].x;
+    ptr[1] = p_mat[0].y;
+    ptr[2] = p_mat[0].z;
+    ptr[3] = p_mat[0].w;
+
+    ptr[4] = p_mat[1].x;
+    ptr[5] = p_mat[1].y;
+    ptr[6] = p_mat[1].z;
+    ptr[7] = p_mat[1].w;
+
+    ptr[8] = p_mat[2].x;
+    ptr[9] = p_mat[2].y;
+    ptr[10] = p_mat[2].z;
+    ptr[11] = p_mat[2].w;
+    
+    ptr[12] = p_mat[3].x;
+    ptr[13] = p_mat[3].y;
+    ptr[14] = p_mat[3].z;
+    ptr[15] = p_mat[3].w;
+}
+
+RID *filter_get_texture(RenderFrame *frame, const BufferTarget &target) {
+	switch (target) {
+		case BufferTarget::PRIMARY_BUFFER0: return &frame->primary_filter_target.color0;
+		case BufferTarget::PRIMARY_BUFFER1: return &frame->primary_filter_target.color1;
+		case BufferTarget::SECONDARY_BUFFER0: return &frame->secondary_filter_target.color0;
+		case BufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.color1;
+		case BufferTarget::BLEND_BUFFER0: return &frame->blend_mask_target.color0;
+		case BufferTarget::BLEND_BUFFER1: return &frame->blend_mask_target.color1;
+	}
+	return nullptr;
+}
+
+RID *filter_get_framebuffer(RenderFrame *frame, const BufferTarget &target) {
+	switch (target) {
+		case BufferTarget::PRIMARY_BUFFER0: return &frame->primary_filter_target.framebuffer0;
+		case BufferTarget::PRIMARY_BUFFER1: return &frame->primary_filter_target.framebuffer1;
+		case BufferTarget::SECONDARY_BUFFER0: return &frame->secondary_filter_target.framebuffer0;
+		case BufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.framebuffer1;
+		case BufferTarget::BLEND_BUFFER0: return &frame->blend_mask_target.framebuffer0;
+		case BufferTarget::BLEND_BUFFER1: return &frame->blend_mask_target.framebuffer1;
+	}
+	return nullptr;
+}
 
 RenderInterfaceGodot *RenderInterfaceGodot::singleton = nullptr;
 
 RenderInterfaceGodot *RenderInterfaceGodot::get_singleton() {
     return singleton;
+}
+
+void RenderInterfaceGodot::create_shader_pipeline(uint64_t p_id, const std::map<String, Variant> &p_params) {
+    std::map clipping_params = std::map(p_params);
+    clipping_params.merge(std::map<String, Variant>({
+        {"enable_stencil", true},
+        {"op_ref", 0x01},
+        {"op_compare", RD::COMPARE_OP_EQUAL},
+        {"op_compare_mask", 0xff},
+        {"op_write_mask", 0x00},
+        {"op_pass", RD::STENCIL_OP_KEEP},
+        {"op_fail", RD::STENCIL_OP_KEEP}
+    }));
+    RID pipeline_not_clipping = internal_rendering_resources.create_pipeline(p_params);
+    RID pipeline_clipping = internal_rendering_resources.create_pipeline(clipping_params);
+
+    pipelines[p_id] = {pipeline_not_clipping, pipeline_clipping};
+}
+
+RID RenderInterfaceGodot::get_shader_pipeline(uint64_t p_id) const {
+    return clip_mask_enabled ? std::get<1>(pipelines.at(p_id)) : std::get<0>(pipelines.at(p_id));
 }
 
 void RenderInterfaceGodot::initialize() {
@@ -80,10 +158,15 @@ void RenderInterfaceGodot::initialize() {
     clip_mask_attachment->set_format(RD::DATA_FORMAT_S8_UINT);
     clip_mask_attachment->set_usage_flags(RD::TEXTURE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT);
 
+    color_framebuffer_format = rd->framebuffer_format_create({ color_attachment });
     geometry_framebuffer_format = rd->framebuffer_format_create({ color_attachment, clip_mask_attachment });
     clip_mask_framebuffer_format = rd->framebuffer_format_create({ clip_mask_attachment });
     geometry_vertex_format = rd->vertex_format_create({ pos_attr, color_attr, uv_attr });
 
+    shader_blit = internal_rendering_resources.create_shader({
+        {"path", "res://addons/rmlui/shaders/blit.glsl"},
+        {"name", "rmlui_blit_shader"}
+    });
     shader_geometry = internal_rendering_resources.create_shader({
         {"path", "res://addons/rmlui/shaders/geometry.glsl"},
         {"name", "rmlui_geometry_shader"}
@@ -97,6 +180,11 @@ void RenderInterfaceGodot::initialize() {
         {"name", "rmlui_layer_composition_shader"}
     });
 
+    pipeline_blit = internal_rendering_resources.create_pipeline({
+        {"shader", shader_blit},
+        {"framebuffer_format", color_framebuffer_format},
+        {"attachment_count", 3}
+    });
     pipeline_geometry = internal_rendering_resources.create_pipeline({
         {"shader", shader_geometry},
         {"framebuffer_format", geometry_framebuffer_format},
@@ -164,41 +252,62 @@ void RenderInterfaceGodot::initialize() {
         {"attachment_count", 3},
     });
 
-    filter_shaders[SHADER_FILTER_MODULATE] = internal_rendering_resources.create_shader({
+    shaders[SHADER_FILTER_MODULATE] = internal_rendering_resources.create_shader({
         {"path", "res://addons/rmlui/shaders/filters/modulate.glsl"},
         {"name", "rmlui_filter_modulate_shader"}
     });
-    filter_shaders[SHADER_FILTER_BLUR] = internal_rendering_resources.create_shader({
+    shaders[SHADER_FILTER_BLUR] = internal_rendering_resources.create_shader({
         {"path", "res://addons/rmlui/shaders/filters/blur.glsl"},
         {"name", "rmlui_filter_blur_shader"}
     });
-    filter_shaders[SHADER_FILTER_DROP_SHADOW] = internal_rendering_resources.create_shader({
+    shaders[SHADER_FILTER_DROP_SHADOW] = internal_rendering_resources.create_shader({
         {"path", "res://addons/rmlui/shaders/filters/drop_shadow.glsl"},
         {"name", "rmlui_filter_drop_shadow_shader"}
     });
-    filter_shaders[SHADER_FILTER_COLOR_MATRIX] = internal_rendering_resources.create_shader({
+    shaders[SHADER_FILTER_COLOR_MATRIX] = internal_rendering_resources.create_shader({
         {"path", "res://addons/rmlui/shaders/filters/color_matrix.glsl"},
         {"name", "rmlui_filter_color_matrix_shader"}
     });
+    shaders[SHADER_FILTER_MASK] = internal_rendering_resources.create_shader({
+        {"path", "res://addons/rmlui/shaders/filters/mask.glsl"},
+        {"name", "rmlui_filter_mask_shader"}
+    });
 
-    filter_pipelines[PIPELINE_FILTER_MODULATE] = internal_rendering_resources.create_pipeline({
-        {"shader", filter_shaders[SHADER_FILTER_MODULATE]},
+    shaders[SHADER_GRADIENT] = internal_rendering_resources.create_shader({
+        {"path", "res://addons/rmlui/shaders/shaders/gradient.glsl"},
+        {"name", "rmlui_filter_gradient_shader"}
+    });
+
+    create_shader_pipeline(PIPELINE_FILTER_MODULATE, {
+        {"shader", shaders[SHADER_FILTER_MODULATE]},
         {"framebuffer_format", geometry_framebuffer_format},
         {"attachment_count", 3},
     });
-    filter_pipelines[PIPELINE_FILTER_BLUR] = internal_rendering_resources.create_pipeline({
-        {"shader", filter_shaders[SHADER_FILTER_BLUR]},
+    create_shader_pipeline(PIPELINE_FILTER_BLUR, {
+        {"shader", shaders[SHADER_FILTER_BLUR]},
         {"framebuffer_format", geometry_framebuffer_format},
         {"attachment_count", 3},
     });
-    filter_pipelines[PIPELINE_FILTER_DROP_SHADOW] = internal_rendering_resources.create_pipeline({
-        {"shader", filter_shaders[SHADER_FILTER_DROP_SHADOW]},
+    create_shader_pipeline(PIPELINE_FILTER_DROP_SHADOW, {
+        {"shader", shaders[SHADER_FILTER_DROP_SHADOW]},
         {"framebuffer_format", geometry_framebuffer_format},
         {"attachment_count", 3},
     });
-    filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX] = internal_rendering_resources.create_pipeline({
-        {"shader", filter_shaders[SHADER_FILTER_COLOR_MATRIX]},
+    create_shader_pipeline(PIPELINE_FILTER_COLOR_MATRIX, {
+        {"shader", shaders[SHADER_FILTER_COLOR_MATRIX]},
         {"framebuffer_format", geometry_framebuffer_format},
+        {"attachment_count", 3},
+    });
+    create_shader_pipeline(PIPELINE_FILTER_MASK, {
+        {"shader", shaders[SHADER_FILTER_MASK]},
+        {"framebuffer_format", geometry_framebuffer_format},
+        {"attachment_count", 3},
+    });
+
+    create_shader_pipeline(PIPELINE_GRADIENT, {
+        {"shader", shaders[SHADER_GRADIENT]},
+        {"framebuffer_format", geometry_framebuffer_format},
+        {"vertex_format", geometry_vertex_format},
         {"attachment_count", 3},
     });
 
@@ -290,13 +399,35 @@ void RenderInterfaceGodot::allocate_render_frame() {
     allocate_render_target(&target_frame->main_target);
     allocate_render_target(&target_frame->primary_filter_target);
     allocate_render_target(&target_frame->secondary_filter_target);
+    allocate_render_target(&target_frame->blend_mask_target);
     target_frame->main_tex = rs->texture_rd_create(target_frame->main_target.color0);
 }
 
-void RenderInterfaceGodot::blit_texture(const RID &p_dst, const RID &p_src, const Vector2i &p_size) {
+void RenderInterfaceGodot::blit_texture(const RID &p_dst, const RID &p_src, const Vector2i &p_dst_pos, const Vector2i &p_src_pos, const Vector2i &p_size) {
     RD *rd = internal_rendering_resources.device();
 
-    rd->texture_copy(p_src, p_dst, Vector3(0, 0, 0), Vector3(0, 0, 0), Vector3(p_size.x, p_size.y, 1), 0, 0, 0, 0);
+    Ref<RDUniform> screen_texture_uniform = memnew(RDUniform);
+    screen_texture_uniform->set_uniform_type(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
+    screen_texture_uniform->set_binding(0);
+    screen_texture_uniform->add_id(sampler_nearest);
+    screen_texture_uniform->add_id(p_src);
+
+    RID uniform_set = UniformSetCacheRD::get_cache(shader_blit, 0, { screen_texture_uniform });
+
+    PackedByteArray push_const;
+    push_const.resize(16);
+    int *push_const_ptr = (int *)push_const.ptrw();
+    push_const_ptr[0] = p_src_pos.x;
+    push_const_ptr[1] = p_src_pos.y;
+
+    int draw_list = rd->draw_list_begin(p_dst, RD::DRAW_DEFAULT_ALL, {}, 1.0f, 0, Rect2(p_dst_pos.x, p_dst_pos.y, p_size.x, p_size.y));
+
+    rd->draw_list_bind_render_pipeline(draw_list, pipeline_blit);
+    rd->draw_list_bind_uniform_set(draw_list, uniform_set, 0);
+    rd->draw_list_set_push_constant(draw_list, push_const, push_const.size());
+
+    rd->draw_list_draw(draw_list, false, 1, 3);
+    rd->draw_list_end();
 }
 
 void RenderInterfaceGodot::free_render_frame(RenderFrame *p_frame) {
@@ -305,6 +436,7 @@ void RenderInterfaceGodot::free_render_frame(RenderFrame *p_frame) {
     free_render_target(&p_frame->main_target);
     free_render_target(&p_frame->primary_filter_target);
     free_render_target(&p_frame->secondary_filter_target);
+    free_render_target(&p_frame->blend_mask_target);
 
     if (p_frame->clip_mask_framebuffer.is_valid()) {
         rendering_resources.free_framebuffer(p_frame->clip_mask_framebuffer);
@@ -432,36 +564,14 @@ void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, 
 
     RID uniform_set = UniformSetCacheRD::get_cache(shader_geometry, 0, { screen_texture_uniform, texture_uniform });
 
-    Projection final_transform = drawing_matrix * Projection(Transform3D(Basis(), Vector3(translation.x, translation.y, 0.0)));
+    Rml::Matrix4f final_transform = get_final_transform(drawing_matrix, translation);
 
     PackedByteArray push_const;
-    push_const.resize(96);
+    push_const.resize(80);
     float *push_const_ptr = (float *)push_const.ptrw();
     push_const_ptr[0] = 1.0 / target_frame->current_size.x;
     push_const_ptr[1] = 1.0 / target_frame->current_size.y;
-
-    push_const_ptr[4] = final_transform.columns[0].x;
-    push_const_ptr[5] = final_transform.columns[0].y;
-    push_const_ptr[6] = final_transform.columns[0].z;
-    push_const_ptr[7] = final_transform.columns[0].w;
-
-    push_const_ptr[8] = final_transform.columns[1].x;
-    push_const_ptr[9] = final_transform.columns[1].y;
-    push_const_ptr[10] = final_transform.columns[1].z;
-    push_const_ptr[11] = final_transform.columns[1].w;
-
-    push_const_ptr[12] = final_transform.columns[2].x;
-    push_const_ptr[13] = final_transform.columns[2].y;
-    push_const_ptr[14] = final_transform.columns[2].z;
-    push_const_ptr[15] = final_transform.columns[2].w;
-
-    push_const_ptr[16] = final_transform.columns[3].x;
-    push_const_ptr[17] = final_transform.columns[3].y;
-    push_const_ptr[18] = final_transform.columns[3].z;
-    push_const_ptr[19] = final_transform.columns[3].w;
-
-    unsigned int *push_const_int_ptr = (unsigned int *)push_const.ptrw();
-    push_const_int_ptr[20] = clip_mask_enabled ? 1 : 0;
+    matrix_to_pointer(push_const_ptr + 4, final_transform);
 
     int draw_list = rd->draw_list_begin(target->framebuffer1, RD::DRAW_DEFAULT_ALL);
     if (scissor_enabled) {
@@ -481,7 +591,7 @@ void RenderInterfaceGodot::RenderGeometry(Rml::CompiledGeometryHandle geometry, 
     rd->draw_list_draw(draw_list, true, 1);
     rd->draw_list_end();
 
-    blit_texture(target->color0, target->color1, target_frame->current_size);
+    blit_texture(target->framebuffer0, target->color1, Vector2i(), Vector2i(), target_frame->current_size);
 }
 
 void RenderInterfaceGodot::ReleaseGeometry(Rml::CompiledGeometryHandle geometry) {
@@ -578,33 +688,14 @@ void RenderInterfaceGodot::RenderToClipMask(Rml::ClipMaskOperation operation, Rm
     
     RD *rd = rendering_resources.device();
 
-    Projection final_transform = drawing_matrix * Projection(Transform3D(Basis(), Vector3(translation.x, translation.y, 0.0)));
+    Rml::Matrix4f final_transform = get_final_transform(drawing_matrix, translation);
 
     PackedByteArray push_const;
     push_const.resize(80);
     float *push_const_ptr = (float *)push_const.ptrw();
     push_const_ptr[0] = 1.0 / target_frame->current_size.x;
     push_const_ptr[1] = 1.0 / target_frame->current_size.y;
-
-    push_const_ptr[4] = final_transform.columns[0].x;
-    push_const_ptr[5] = final_transform.columns[0].y;
-    push_const_ptr[6] = final_transform.columns[0].z;
-    push_const_ptr[7] = final_transform.columns[0].w;
-
-    push_const_ptr[8] = final_transform.columns[1].x;
-    push_const_ptr[9] = final_transform.columns[1].y;
-    push_const_ptr[10] = final_transform.columns[1].z;
-    push_const_ptr[11] = final_transform.columns[1].w;
-
-    push_const_ptr[12] = final_transform.columns[2].x;
-    push_const_ptr[13] = final_transform.columns[2].y;
-    push_const_ptr[14] = final_transform.columns[2].z;
-    push_const_ptr[15] = final_transform.columns[2].w;
-
-    push_const_ptr[16] = final_transform.columns[3].x;
-    push_const_ptr[17] = final_transform.columns[3].y;
-    push_const_ptr[18] = final_transform.columns[3].z;
-    push_const_ptr[19] = final_transform.columns[3].w;
+    matrix_to_pointer(push_const_ptr + 4, final_transform);
     
     uint64_t clear_flags = RD::DRAW_CLEAR_STENCIL;
     uint32_t clear_stencil_value = 0;
@@ -614,6 +705,7 @@ void RenderInterfaceGodot::RenderToClipMask(Rml::ClipMaskOperation operation, Rm
     if (operation == Rml::ClipMaskOperation::Intersect) {
         clear_flags = RD::DRAW_DEFAULT_ALL;
     }
+
     int draw_list = rd->draw_list_begin(target_frame->clip_mask_framebuffer, clear_flags, {}, 1.0f, clear_stencil_value);
 
     if (scissor_enabled) {
@@ -648,14 +740,11 @@ void RenderInterfaceGodot::RenderToClipMask(Rml::ClipMaskOperation operation, Rm
 
 void RenderInterfaceGodot::SetTransform(const Rml::Matrix4f* transform) {
     if (transform == nullptr) {
-        drawing_matrix = Projection();
+        drawing_matrix = Rml::Matrix4f::Identity();
         return;
     }
-    Rml::Matrix4f mat = *transform;
-    drawing_matrix[0] = Vector4(mat[0].x, mat[0].y, mat[0].z, mat[0].w);
-    drawing_matrix[1] = Vector4(mat[1].x, mat[1].y, mat[1].z, mat[1].w);
-    drawing_matrix[2] = Vector4(mat[2].x, mat[2].y, mat[2].z, mat[2].w);
-    drawing_matrix[3] = Vector4(mat[3].x, mat[3].y, mat[3].z, mat[3].w);
+    drawing_matrix = *transform;
+    drawing_matrix = Rml::Matrix4f::Identity();
 }
 
 Rml::LayerHandle RenderInterfaceGodot::PushLayer() {
@@ -677,35 +766,15 @@ Rml::LayerHandle RenderInterfaceGodot::PushLayer() {
     return render_target_stack_ptr;
 }
 
-RID *filter_get_texture(RenderFrame *frame, const FilterData::Pass::FilterBufferTarget &target) {
-	switch (target) {
-		case FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER0: return &frame->primary_filter_target.color0;
-		case FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER1: return &frame->primary_filter_target.color1;
-		case FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0: return &frame->secondary_filter_target.color0;
-		case FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.color1;
-	}
-	return nullptr;
-}
-
-RID *filter_get_framebuffer(RenderFrame *frame, const FilterData::Pass::FilterBufferTarget &target) {
-	switch (target) {
-		case FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER0: return &frame->primary_filter_target.framebuffer0;
-		case FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER1: return &frame->primary_filter_target.framebuffer1;
-		case FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0: return &frame->secondary_filter_target.framebuffer0;
-		case FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.framebuffer1;
-	}
-	return nullptr;
-}
-
 void RenderInterfaceGodot::RenderFilter(Rml::CompiledFilterHandle filter) {
-    FilterData *filter_data = reinterpret_cast<FilterData *>(filter);
+    ShaderRenderData *shader_data = reinterpret_cast<ShaderRenderData *>(filter);
 
     RD *rd = rendering_resources.device();
 
-    rd->draw_command_begin_label(vformat("Rendering filter %s", filter_data->name), Color(1, 1, 1));
+    rd->draw_command_begin_label(vformat("Rendering filter %s", shader_data->name), Color(1, 1, 1));
 
-    for (int i = 0; i < filter_data->passes.size(); i++) {
-        const FilterData::Pass &pass = filter_data->passes[i];
+    for (int i = 0; i < shader_data->passes.size(); i++) {
+        const ShaderRenderData::Pass &pass = shader_data->passes[i];
 
         TypedArray<Ref<RDUniform>> uniforms;
 
@@ -735,7 +804,8 @@ void RenderInterfaceGodot::RenderFilter(Rml::CompiledFilterHandle filter) {
 
         int draw_list = rd->draw_list_begin(*framebuffer, RD::DRAW_CLEAR_ALL, {Color(0, 0, 0, 0)});
 
-        rd->draw_list_bind_render_pipeline(draw_list, pass.pipeline);
+        RID pipeline = get_shader_pipeline(pass.pipeline_id);
+        rd->draw_list_bind_render_pipeline(draw_list, pipeline);
         rd->draw_list_bind_uniform_set(draw_list, uniform_set, 0);
         if (!pass.push_const.is_empty()) {
             rd->draw_list_set_push_constant(draw_list, pass.push_const, pass.push_const.size());
@@ -762,7 +832,7 @@ void RenderInterfaceGodot::CompositeLayers(Rml::LayerHandle source, Rml::LayerHa
     RenderTarget *source_target = render_target_stack[source];
     RenderTarget *destination_target = render_target_stack[destination];
 
-    blit_texture(target_frame->primary_filter_target.color0, source_target->color0, target_frame->current_size);
+    blit_texture(target_frame->primary_filter_target.framebuffer0, source_target->color0, Vector2i(), Vector2i(), target_frame->current_size);
     for (auto it : filters) {
         RenderFilter(it);
     }
@@ -787,6 +857,7 @@ void RenderInterfaceGodot::CompositeLayers(Rml::LayerHandle source, Rml::LayerHa
     push_const_ptr[0] = (unsigned int)blend_mode;
 
     RD *rd = internal_rendering_resources.device();
+
     int draw_list = rd->draw_list_begin(destination_target->framebuffer1, RD::DRAW_DEFAULT_ALL);
 
     rd->draw_list_bind_render_pipeline(draw_list, pipeline_layer_composition);
@@ -796,40 +867,64 @@ void RenderInterfaceGodot::CompositeLayers(Rml::LayerHandle source, Rml::LayerHa
     rd->draw_list_draw(draw_list, false, 1, 3);
     rd->draw_list_end();
 
-    blit_texture(destination_target->color0, destination_target->color1, target_frame->current_size);
+    blit_texture(destination_target->framebuffer0, destination_target->color1, Vector2i(), Vector2i(), target_frame->current_size);
 }
 
 void RenderInterfaceGodot::PopLayer() {
     render_target_stack_ptr--;
 }
 
-void matrix_to_pointer(float *ptr, const Rml::Matrix4f &p_proj) {
-    ptr[0] = p_proj[0].x;
-    ptr[1] = p_proj[0].y;
-    ptr[2] = p_proj[0].z;
-    ptr[3] = p_proj[0].w;
-    ptr[4] = p_proj[1].x;
-    ptr[5] = p_proj[1].y;
-    ptr[6] = p_proj[1].z;
-    ptr[7] = p_proj[1].w;
-    ptr[8] = p_proj[2].x;
-    ptr[9] = p_proj[2].y;
-    ptr[10] = p_proj[2].z;
-    ptr[11] = p_proj[2].w;
-    ptr[12] = p_proj[3].x;
-    ptr[13] = p_proj[3].y;
-    ptr[14] = p_proj[3].z;
-    ptr[15] = p_proj[3].w;
+Rml::TextureHandle RenderInterfaceGodot::SaveLayerAsTexture() {
+    RenderTarget *target = render_target_stack[render_target_stack_ptr];
+
+    TextureData *tex_data = memnew(TextureData());
+    Vector2i off = scissor_region.position;
+    Vector2i size = scissor_region.size;
+    tex_data->rid = rendering_resources.create_texture({
+        {"width", size.x},
+        {"height", size.y},
+        {"format", RD::DATA_FORMAT_R8G8B8A8_UNORM},
+        {"usage_bits", RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT}
+    });
+
+    RD *rd = rendering_resources.device();
+    RID fb = rd->framebuffer_create({ tex_data->rid });
+
+    blit_texture(fb, target->color0, Vector2i(), off, size);
+
+    rd->free_rid(fb);
+
+    return reinterpret_cast<uintptr_t>(tex_data);
+}
+
+Rml::CompiledFilterHandle RenderInterfaceGodot::SaveLayerAsMaskImage() {
+    RenderTarget *target = render_target_stack[render_target_stack_ptr];
+
+    ShaderRenderData params;
+    params.name = "mask";
+
+    blit_texture(target_frame->blend_mask_target.framebuffer0, target->color0, Vector2i(), Vector2i(), target_frame->current_size);
+
+    ShaderRenderData::Pass pass;
+    pass.shader = shaders[SHADER_FILTER_MASK];
+    pass.pipeline_id = PIPELINE_FILTER_MASK;
+    pass.src0 = BufferTarget::PRIMARY_BUFFER0;
+    pass.src1 = BufferTarget::BLEND_BUFFER0;
+
+    params.passes.push_back(pass);
+
+    ShaderRenderData *shader_data = memnew(ShaderRenderData(std::move(params)));
+    return reinterpret_cast<uintptr_t>(shader_data);
 }
 
 Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) {
-    FilterData params;
+    ShaderRenderData params;
     params.name = rml_to_godot_string(name);
 
     if (name == "opacity") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_MODULATE];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_MODULATE];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_MODULATE];
+        pass.pipeline_id = PIPELINE_FILTER_MODULATE;
 
         const float value = Rml::Get(parameters, "value", 1.f);
 
@@ -845,12 +940,12 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "blur") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_BLUR];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_BLUR];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_BLUR];
+        pass.pipeline_id = PIPELINE_FILTER_BLUR;
 
         const float sigma = Rml::Get(parameters, "sigma", 0.f);
-
+        
         // Horizontal pass
         pass.push_const = PackedByteArray();
         pass.push_const.resize(32);
@@ -880,13 +975,13 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
         const Rml::Vector2f offset = Rml::Get(parameters, "offset", Rml::Vector2f());
 
         // Blur horizontal pass
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_BLUR];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_BLUR];
-        pass.src0 = FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER0;
-        pass.dst = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1;
-        pass.swap0 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0;
-        pass.swap1 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1;
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_BLUR];
+        pass.pipeline_id = PIPELINE_FILTER_BLUR;
+        pass.src0 = BufferTarget::PRIMARY_BUFFER0;
+        pass.dst = BufferTarget::SECONDARY_BUFFER1;
+        pass.swap0 = BufferTarget::SECONDARY_BUFFER0;
+        pass.swap1 = BufferTarget::SECONDARY_BUFFER1;
 
         pass.push_const = PackedByteArray();
         pass.push_const.resize(32);
@@ -900,10 +995,10 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
         params.passes.push_back(pass);
 
         // Blur vertial pass
-        pass.src0 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0;
-        pass.dst = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1;
-        pass.swap0 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0;
-        pass.swap1 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER1;
+        pass.src0 = BufferTarget::SECONDARY_BUFFER0;
+        pass.dst = BufferTarget::SECONDARY_BUFFER1;
+        pass.swap0 = BufferTarget::SECONDARY_BUFFER0;
+        pass.swap1 = BufferTarget::SECONDARY_BUFFER1;
 
         pass.push_const = PackedByteArray();
         pass.push_const.resize(32);
@@ -917,13 +1012,13 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
         params.passes.push_back(pass);
 
         // Drop shadow pass
-        pass.shader = filter_shaders[SHADER_FILTER_DROP_SHADOW];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_DROP_SHADOW];
-        pass.src0 = FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER0;
-        pass.src1 = FilterData::Pass::FilterBufferTarget::SECONDARY_BUFFER0;
-        pass.dst = FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER1;
-        pass.swap0 = FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER0;
-        pass.swap1 = FilterData::Pass::FilterBufferTarget::PRIMARY_BUFFER1;
+        pass.shader = shaders[SHADER_FILTER_DROP_SHADOW];
+        pass.pipeline_id = PIPELINE_FILTER_DROP_SHADOW;
+        pass.src0 = BufferTarget::PRIMARY_BUFFER0;
+        pass.src1 = BufferTarget::SECONDARY_BUFFER0;
+        pass.dst = BufferTarget::PRIMARY_BUFFER1;
+        pass.swap0 = BufferTarget::PRIMARY_BUFFER0;
+        pass.swap1 = BufferTarget::PRIMARY_BUFFER1;
 
         pass.push_const = PackedByteArray();
         pass.push_const.resize(16);
@@ -935,9 +1030,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "brightness") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_MODULATE];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_MODULATE];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_MODULATE];
+        pass.pipeline_id = PIPELINE_FILTER_MODULATE;
 
         const float value = Rml::Get(parameters, "value", 1.f);
 
@@ -953,9 +1048,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "contrast") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_COLOR_MATRIX];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_COLOR_MATRIX];
+        pass.pipeline_id = PIPELINE_FILTER_COLOR_MATRIX;
 
         const float value = Rml::Get(parameters, "value", 1.f);
         const float gray = 0.5f - 0.5f * value;
@@ -970,9 +1065,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "invert") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_COLOR_MATRIX];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_COLOR_MATRIX];
+        pass.pipeline_id = PIPELINE_FILTER_COLOR_MATRIX;
 
         const float value = Rml::Get(parameters, "value", 0.f);
         const float inverted = 1.f - 2.f * value;
@@ -987,9 +1082,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "grayscale") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_COLOR_MATRIX];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_COLOR_MATRIX];
+        pass.pipeline_id = PIPELINE_FILTER_COLOR_MATRIX;
 
         const float value = Rml::Get(parameters, "value", 1.f);
         const float rev_value = 1.f - value;
@@ -1009,9 +1104,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "sepia") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_COLOR_MATRIX];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_COLOR_MATRIX];
+        pass.pipeline_id = PIPELINE_FILTER_COLOR_MATRIX;
 
         const float value = Rml::Get(parameters, "value", 1.f);
         const float rev_value = 1.f - value;
@@ -1033,9 +1128,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "hue-rotate") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_MODULATE];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_MODULATE];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_MODULATE];
+        pass.pipeline_id = PIPELINE_FILTER_MODULATE;
 
         const float value = Rml::Get(parameters, "value", 0.f);
 
@@ -1051,9 +1146,9 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
 
         params.passes.push_back(pass);
     } else if (name == "saturate") {
-        FilterData::Pass pass;
-        pass.shader = filter_shaders[SHADER_FILTER_COLOR_MATRIX];
-        pass.pipeline = filter_pipelines[PIPELINE_FILTER_COLOR_MATRIX];
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_FILTER_COLOR_MATRIX];
+        pass.pipeline_id = PIPELINE_FILTER_COLOR_MATRIX;
 
         const float value = Rml::Get(parameters, "value", 1.f);
 
@@ -1072,13 +1167,173 @@ Rml::CompiledFilterHandle RenderInterfaceGodot::CompileFilter(const Rml::String&
         params.passes.push_back(pass);
     }
 
-    FilterData *filter_data = memnew(FilterData(std::move(params)));
-    return reinterpret_cast<uintptr_t>(filter_data);
+    ShaderRenderData *shader_data = memnew(ShaderRenderData(std::move(params)));
+    return reinterpret_cast<uintptr_t>(shader_data);
 }
 
 void RenderInterfaceGodot::ReleaseFilter(Rml::CompiledFilterHandle filter) {
-    FilterData *filter_data = reinterpret_cast<FilterData *>(filter);
-    memdelete(filter_data);
+    ShaderRenderData *shader_data = reinterpret_cast<ShaderRenderData *>(filter);
+
+    memdelete(shader_data);
+}
+
+Rml::CompiledShaderHandle RenderInterfaceGodot::CompileShader(const Rml::String& name, const Rml::Dictionary& parameters) {
+    ShaderRenderData params;
+    params.name = rml_to_godot_string(name);
+
+    RD *rd = rendering_resources.device();
+
+    if (name == "linear-gradient" || name == "radial-gradient" || name == "conic-gradient") {
+        ShaderRenderData::Pass pass;
+        pass.shader = shaders[SHADER_GRADIENT];
+        pass.pipeline_id = PIPELINE_GRADIENT;
+        pass.src0 = BufferTarget::NONE;
+        pass.src1 = BufferTarget::NONE;
+        pass.dst = BufferTarget::PRIMARY_BUFFER1;
+        pass.swap0 = BufferTarget::PRIMARY_BUFFER0;
+        pass.swap1 = BufferTarget::PRIMARY_BUFFER1;
+
+        const bool repeating = Rml::Get(parameters, "repeating", false);
+        const Rml::ColorStopList stop_list = Rml::Get(parameters, "color_stop_list", Rml::ColorStopList());
+        Rml::Vector2f p, v;
+        uint grad_type;
+
+        if (name == "linear-gradient") {
+            grad_type = 1;
+            p = Rml::Get(parameters, "p0", Rml::Vector2f());
+            v = Rml::Get(parameters, "p1", Rml::Vector2f(0.f)) - p;
+        }
+
+        int stop_count = stop_list.size();
+
+        pass.push_const = PackedByteArray();
+        pass.push_const.resize(112);
+        float *push_const_ptr = (float *)pass.push_const.ptrw();
+        unsigned int *push_const_uint_ptr = (unsigned int *)pass.push_const.ptrw();
+        push_const_uint_ptr[20] = (grad_type << 1) | (repeating ? 1 : 0);
+        push_const_uint_ptr[21] = stop_count;
+        push_const_ptr[22] = p.x;
+        push_const_ptr[23] = p.y;
+        push_const_ptr[24] = v.x;
+        push_const_ptr[25] = v.y;
+
+        PackedByteArray storage_buffer;
+        storage_buffer.resize(stop_count * (4 + 1) * 4); // N * (rgba + position) * 4 bytes
+        float *buffer_ptr = (float *)storage_buffer.ptrw();
+
+        for (int i = 0; i < stop_count; i++) {
+            Rml::ColourbPremultiplied color = stop_list[i].color;
+            float position = stop_list[i].position.number;
+            buffer_ptr[i * 5 + 0] = color.red / 255.0;
+            buffer_ptr[i * 5 + 1] = color.green / 255.0;
+            buffer_ptr[i * 5 + 2] = color.blue / 255.0;
+            buffer_ptr[i * 5 + 3] = color.alpha / 255.0;
+            buffer_ptr[i * 5 + 4] = position;
+        }
+
+        pass.buffer = rendering_resources.create_storage_buffer({
+            {"data", storage_buffer}
+        });
+
+        params.passes.push_back(pass);
+    }
+
+    ShaderRenderData *shader_data = memnew(ShaderRenderData(std::move(params)));
+    return reinterpret_cast<uintptr_t>(shader_data);
+}
+
+void RenderInterfaceGodot::RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture) {
+    ERR_FAIL_COND(render_target_stack.size() == 0);
+    RenderTarget *target = render_target_stack[render_target_stack_ptr];
+
+    MeshData *mesh_data = reinterpret_cast<MeshData *>(geometry);
+    ERR_FAIL_NULL(mesh_data);
+
+    ShaderRenderData *shader_data = reinterpret_cast<ShaderRenderData *>(shader);
+    
+    RD *rd = rendering_resources.device();
+
+    Rml::Matrix4f final_transform = get_final_transform(drawing_matrix, translation);
+
+    for (int i = 0; i < shader_data->passes.size(); i++) {
+        ShaderRenderData::Pass &pass = shader_data->passes[i];
+
+        TypedArray<Ref<RDUniform>> uniforms;
+
+        RID *src_tex0, *src_tex1;
+        src_tex0 = filter_get_texture(target_frame, pass.src0);
+        src_tex1 = filter_get_texture(target_frame, pass.src1);
+        
+        int uniform_binding = 0;
+        if (src_tex0 != nullptr) {
+            Ref<RDUniform> src0 = memnew(RDUniform);
+            src0->set_uniform_type(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
+            src0->set_binding(uniform_binding++);
+            src0->add_id(sampler_nearest);
+            src0->add_id(*src_tex0);
+            uniforms.append(src0);
+        }
+
+        if (src_tex1 != nullptr) {
+            Ref<RDUniform> src1 = memnew(RDUniform);
+            src1->set_uniform_type(RD::UNIFORM_TYPE_SAMPLER_WITH_TEXTURE);
+            src1->set_binding(uniform_binding++);
+            src1->add_id(sampler_nearest);
+            src1->add_id(*src_tex1);
+            uniforms.append(src1);
+        }
+
+        if (pass.buffer.is_valid()) {
+            Ref<RDUniform> buf = memnew(RDUniform);
+            buf->set_uniform_type(RD::UNIFORM_TYPE_STORAGE_BUFFER);
+            buf->set_binding(uniform_binding++);
+            buf->add_id(pass.buffer);
+            uniforms.append(buf);
+        }
+
+        RID *framebuffer = filter_get_framebuffer(target_frame, pass.dst);
+
+        RID uniform_set = UniformSetCacheRD::get_cache(pass.shader, 0, uniforms);
+
+        float *push_const_ptr = (float *)pass.push_const.ptrw();
+        push_const_ptr[0] = 1.0 / target_frame->current_size.x;
+        push_const_ptr[1] = 1.0 / target_frame->current_size.y;
+        matrix_to_pointer(push_const_ptr + 4, final_transform);
+
+        int draw_list = rd->draw_list_begin(target->framebuffer1, RD::DRAW_DEFAULT_ALL);
+        if (scissor_enabled) {
+            rd->draw_list_enable_scissor(draw_list, scissor_region);
+        } else {
+            RenderingServer *rs = RenderingServer::get_singleton();
+            RD *rd = rs->get_rendering_device();
+            rd->draw_list_disable_scissor(draw_list);
+        }
+
+        RID pipeline = get_shader_pipeline(pass.pipeline_id);
+        rd->draw_list_bind_render_pipeline(draw_list, pipeline);
+        rd->draw_list_bind_vertex_array(draw_list, mesh_data->vertex_array);
+        rd->draw_list_bind_index_array(draw_list, mesh_data->index_array);
+        rd->draw_list_bind_uniform_set(draw_list, uniform_set, 0);
+        rd->draw_list_set_push_constant(draw_list, pass.push_const, pass.push_const.size());
+
+        rd->draw_list_draw(draw_list, true, 1);
+        rd->draw_list_end();
+
+        RID *swap0 = filter_get_texture(target_frame, pass.swap0);
+        RID *swap1 = filter_get_texture(target_frame, pass.swap1);
+        RID *swap2 = filter_get_framebuffer(target_frame, pass.swap0);
+        RID *swap3 = filter_get_framebuffer(target_frame, pass.swap1);
+        if (swap0 != nullptr && swap1 != nullptr) {
+            std::swap(*swap0, *swap1);
+            std::swap(*swap2, *swap3);
+        }
+    }
+}
+
+void RenderInterfaceGodot::ReleaseShader(Rml::CompiledShaderHandle shader) {
+    ShaderRenderData *shader_data = reinterpret_cast<ShaderRenderData *>(shader);
+
+    memdelete(shader_data);
 }
 
 RenderInterfaceGodot::RenderInterfaceGodot() {

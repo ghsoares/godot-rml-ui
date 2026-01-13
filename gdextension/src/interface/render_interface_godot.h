@@ -22,14 +22,17 @@ private:
     RenderingResources internal_rendering_resources;
     RenderingResources rendering_resources;
 
+    int64_t color_framebuffer_format;
     int64_t geometry_framebuffer_format;
     int64_t clip_mask_framebuffer_format;
     int64_t geometry_vertex_format;
 
+    RID shader_blit;
     RID shader_geometry;
     RID shader_clip_mask;
     RID shader_layer_composition;
 
+    RID pipeline_blit;
     RID pipeline_geometry;
     RID pipeline_geometry_clipping;
     RID pipeline_clip_mask_set;
@@ -37,8 +40,8 @@ private:
     RID pipeline_clip_mask_intersect;
     RID pipeline_layer_composition;
 
-    std::map<uint64_t, RID> filter_shaders;
-    std::map<uint64_t, RID> filter_pipelines;
+    std::map<uint64_t, RID> shaders;
+    std::map<uint64_t, std::tuple<RID, RID>> pipelines;
 
     RID sampler_nearest;
     RID sampler_linear;
@@ -49,13 +52,16 @@ private:
     Rect2 scissor_region = Rect2();
     bool clip_mask_enabled = false;
 
-    Projection drawing_matrix;
+    Rml::Matrix4f drawing_matrix = Rml::Matrix4f::Identity();
 
     void allocate_render_target(RenderTarget *p_target);
     void free_render_target(RenderTarget *p_target);
 
     void allocate_render_frame();
-    void blit_texture(const RID &p_dst, const RID &p_src, const Vector2i &p_size);
+    void blit_texture(const RID &p_dst, const RID &p_src, const Vector2i &p_dst_pos, const Vector2i &p_src_pos, const Vector2i &p_size);
+
+    void create_shader_pipeline(uint64_t p_id, const std::map<String, Variant> &p_params);
+    RID get_shader_pipeline(uint64_t p_id) const;
 public:
     static RenderInterfaceGodot *get_singleton();
 
@@ -76,8 +82,8 @@ public:
     void EnableScissorRegion(bool enable) override;
     void SetScissorRegion(Rml::Rectanglei region) override;
 
-    void EnableClipMask(bool enable);
-    void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation);
+    void EnableClipMask(bool enable) override;
+    void RenderToClipMask(Rml::ClipMaskOperation operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation) override;
 
     void SetTransform(const Rml::Matrix4f* transform) override;
 
@@ -86,8 +92,15 @@ public:
     void CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode, Rml::Span<const Rml::CompiledFilterHandle> filters) override;
     void PopLayer() override;
 
+    Rml::TextureHandle SaveLayerAsTexture() override;
+    Rml::CompiledFilterHandle SaveLayerAsMaskImage() override;
+
     Rml::CompiledFilterHandle CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) override;
     void ReleaseFilter(Rml::CompiledFilterHandle filter) override;
+
+    Rml::CompiledShaderHandle CompileShader(const Rml::String& name, const Rml::Dictionary& parameters) override;
+    void RenderShader(Rml::CompiledShaderHandle shader, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture) override;
+    void ReleaseShader(Rml::CompiledShaderHandle shader) override;
 
     RenderInterfaceGodot();
     ~RenderInterfaceGodot();

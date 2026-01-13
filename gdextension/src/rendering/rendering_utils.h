@@ -25,26 +25,28 @@ struct TextureData {
 	Ref<Texture> tex_ref;
 };
 
-struct FilterData {
+enum BufferTarget {
+	NONE,
+	PRIMARY_BUFFER0, PRIMARY_BUFFER1,
+	SECONDARY_BUFFER0, SECONDARY_BUFFER1,
+	BLEND_BUFFER0, BLEND_BUFFER1
+};
+
+struct ShaderRenderData {
 	String name;
 
 	struct Pass {
-		enum FilterBufferTarget {
-			NONE,
-			PRIMARY_BUFFER0, PRIMARY_BUFFER1,
-			SECONDARY_BUFFER0, SECONDARY_BUFFER1
-		};
-
 		RID shader;
-		RID pipeline;
+		uint64_t pipeline_id;
+		RID buffer;
 		PackedByteArray push_const;
 
-		FilterBufferTarget src0 = FilterBufferTarget::PRIMARY_BUFFER0;
-		FilterBufferTarget src1 = FilterBufferTarget::NONE;
-		FilterBufferTarget dst = FilterBufferTarget::PRIMARY_BUFFER1;
+		BufferTarget src0 = BufferTarget::PRIMARY_BUFFER0;
+		BufferTarget src1 = BufferTarget::NONE;
+		BufferTarget dst = BufferTarget::PRIMARY_BUFFER1;
 
-		FilterBufferTarget swap0 = FilterBufferTarget::PRIMARY_BUFFER0;
-		FilterBufferTarget swap1 = FilterBufferTarget::PRIMARY_BUFFER1;
+		BufferTarget swap0 = BufferTarget::PRIMARY_BUFFER0;
+		BufferTarget swap1 = BufferTarget::PRIMARY_BUFFER1;
 	};
 
 	std::vector<Pass> passes;
@@ -64,6 +66,7 @@ struct RenderFrame {
 	RenderTarget main_target;
 	RenderTarget primary_filter_target;
 	RenderTarget secondary_filter_target;
+	RenderTarget blend_mask_target;
 	RID main_tex;
 
 	RID clip_mask;
@@ -148,6 +151,7 @@ public:
 	DEFINE_RENDERING_RESOURCE(index_buffer)
 	DEFINE_RENDERING_RESOURCE(vertex_array)
 	DEFINE_RENDERING_RESOURCE(index_array)
+	DEFINE_RENDERING_RESOURCE(storage_buffer)
 
 	RenderingDevice *device() const { return rendering_device; }
 

@@ -13,6 +13,8 @@ void main() {
 #[fragment]
 #version 450 core
 
+#include "../common.glsl.inc"
+
 layout(set = 0, binding = 0) uniform sampler2D screen;
 layout(set = 0, binding = 1) uniform sampler2D shadow;
 
@@ -21,13 +23,6 @@ layout(location = 0) out vec4 o_color;
 layout(push_constant, std430) uniform FilterParams {
 	vec4 color;
 } params;
-
-vec4 blend_mix(in vec4 p_dst, in vec4 p_src) {
-	return vec4(
-		mix(p_dst.rgb, p_src.rgb, p_src.a),
-		p_src.a + p_dst.a * (1 - p_src.a)
-	);
-}
 
 void main() {
     o_color = params.color;

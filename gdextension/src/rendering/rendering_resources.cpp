@@ -50,6 +50,7 @@ void RenderingResources::free_all_resources() {
 	free_all_resources(index_array_map);
 	free_all_resources(vertex_buffer_map);
 	free_all_resources(index_buffer_map);
+	free_all_resources(storage_buffer_map);
 }
 
 #define IMPLEMENT_RENDERING_RESOURCE(p_name) \
@@ -72,6 +73,7 @@ IMPLEMENT_RENDERING_RESOURCE(vertex_buffer)
 IMPLEMENT_RENDERING_RESOURCE(index_buffer)
 IMPLEMENT_RENDERING_RESOURCE(vertex_array)
 IMPLEMENT_RENDERING_RESOURCE(index_array)
+IMPLEMENT_RENDERING_RESOURCE(storage_buffer)
 
 #undef IMPLEMENT_RENDERING_RESOURCE
 
@@ -261,6 +263,19 @@ RID RenderingResources::create_index_array(const std::map<String, Variant> &p_da
 	ERR_FAIL_COND_V(!rid.is_valid(), RID());
 
    	map_resource(rid, index_array_map);
+	return rid;
+}
+
+RID RenderingResources::create_storage_buffer(const std::map<String, Variant> &p_data) {
+	PackedByteArray data = (PackedByteArray)map_get(p_data, "data", PackedByteArray());
+
+	RID rid = rendering_device->storage_buffer_create(
+		data.size(), 
+		data
+	);
+	ERR_FAIL_COND_V(!rid.is_valid(), RID());
+
+	map_resource(rid, sampler_map);
 	return rid;
 }
 

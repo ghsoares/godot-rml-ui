@@ -1,5 +1,7 @@
 body {
 	position: relative;
+
+	filter: drop-shadow(#00000099 4px 4px 4px);
 }
 
 @keyframes test_animation {
@@ -23,11 +25,12 @@ body {
 	display: block;
 	width: 128px;
 	height: 128px;
-	background-color: white;
 	border-radius: 32px;
 
 	overflow: hidden;
 	animation: test_animation 2s infinite;
+
+	decorator: linear-gradient(to top right, red, white, blue);
 }
 
 @keyframes test_animation2 {

@@ -11,7 +11,6 @@ layout(location = 1) out vec4 o_color;
 layout(push_constant, std430) uniform GeometryData {
 	vec2 inv_viewport_size;
 	mat4 transform;
-	bool clip_mask_enabled;
 } geometry_data;
 
 void main() {
@@ -29,6 +28,8 @@ void main() {
 #[fragment]
 #version 450 core
 
+#include "common.glsl.inc"
+
 layout(location = 0) in vec2 i_uv;
 layout(location = 1) in vec4 i_color;
 
@@ -37,18 +38,10 @@ layout(location = 0) out vec4 o_color;
 layout(push_constant, std430) uniform GeometryData {
 	vec2 inv_viewport_size;
 	mat4 transform;
-	bool clip_mask_enabled;
 } geometry_data;
 
 layout(set = 0, binding = 0) uniform sampler2D screen;
 layout(set = 0, binding = 1) uniform sampler2D tex;
-
-vec4 blend_mix(in vec4 p_dst, in vec4 p_src) {
-	return vec4(
-		mix(p_dst.rgb, p_src.rgb, p_src.a),
-		p_src.a + p_dst.a * (1 - p_src.a)
-	);
-}
 
 void main() {
 	o_color = texelFetch(screen, ivec2(gl_FragCoord.xy), 0);
