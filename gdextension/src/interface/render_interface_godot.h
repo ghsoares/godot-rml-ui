@@ -3,7 +3,7 @@
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <vector>
 
-#include "../rendering/rendering_utils.h"
+#include "../rendering/rendering_resources.h"
 
 namespace godot {
 
