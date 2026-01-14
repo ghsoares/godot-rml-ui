@@ -13,3 +13,7 @@ func get_rml_tree_string(el: RMLElement, depth: int = 0, tab = "\t") -> String:
 
 func _ready() -> void:
 	load_from_path("res://test.rml")
+	
+	as_element().query_selector("button").add_event_listener("click", func (_ev):
+		as_element().toggle_class("trippy")
+	)

@@ -164,6 +164,46 @@ void RMLElement::remove_event_listener(const String &p_event_id, const Callable 
 	element->RemoveEventListener(godot_to_rml_string(listener->get_event_id()), listener);
 }
 
+void RMLElement::set_id(const String &p_id) {
+	ENSURE_VALID(this);
+	element->SetId(godot_to_rml_string(p_id));
+}
+
+String RMLElement::get_id() const {
+	ENSURE_VALID_V(this, "");
+	return rml_to_godot_string(element->GetId());
+}
+
+void RMLElement::toggle_class(const String &p_class) {
+	ENSURE_VALID(this);
+	element->SetClass(godot_to_rml_string(p_class), !element->IsClassSet(godot_to_rml_string(p_class)));
+}
+
+void RMLElement::set_class(const String &p_class) {
+	ENSURE_VALID(this);
+	element->SetClass(godot_to_rml_string(p_class), true);
+}
+
+void RMLElement::set_class_names(const String &p_class_names) {
+	ENSURE_VALID(this);
+	element->SetClassNames(godot_to_rml_string(p_class_names));
+}
+
+void RMLElement::remove_class(const String &p_class) {
+	ENSURE_VALID(this);
+	element->SetClass(godot_to_rml_string(p_class), false);
+}
+
+String RMLElement::get_class_names() const {
+	ENSURE_VALID_V(this, "");
+	return rml_to_godot_string(element->GetClassNames());
+}
+
+bool RMLElement::has_class(const String &p_class) const {
+	ENSURE_VALID_V(this, false);
+	return element->IsClassSet(godot_to_rml_string(p_class));
+}
+
 String RMLElement::get_tag_name() const {
 	ENSURE_VALID_V(this, String());
 	return rml_to_godot_string(element->GetTagName());
@@ -228,6 +268,16 @@ void RMLElement::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("add_event_listener", "name", "listener"), &RMLElement::add_event_listener);
 	ClassDB::bind_method(D_METHOD("remove_event_listener", "name", "listener"), &RMLElement::remove_event_listener);
+
+	ClassDB::bind_method(D_METHOD("set_id", "id"), &RMLElement::set_id);
+	ClassDB::bind_method(D_METHOD("get_id"), &RMLElement::get_id);
+
+	ClassDB::bind_method(D_METHOD("set_class", "name"), &RMLElement::set_class);
+	ClassDB::bind_method(D_METHOD("toggle_class", "name"), &RMLElement::toggle_class);
+	ClassDB::bind_method(D_METHOD("set_class_names", "names"), &RMLElement::set_class_names);
+	ClassDB::bind_method(D_METHOD("remove_class", "name"), &RMLElement::remove_class);
+	ClassDB::bind_method(D_METHOD("get_class_names"), &RMLElement::get_class_names);
+	ClassDB::bind_method(D_METHOD("has_class", "name"), &RMLElement::has_class);
 
 	ClassDB::bind_method(D_METHOD("set_property", "name", "value"), &RMLElement::set_property);
 	ClassDB::bind_method(D_METHOD("get_property", "name", "default_value"), &RMLElement::get_property, DEFVAL(String()));

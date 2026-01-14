@@ -103,6 +103,16 @@ public:
 	void add_event_listener(const String &p_event_id, const Callable &p_listener);
 	void remove_event_listener(const String &p_event_id, const Callable &p_listener);
 
+	void set_id(const String &p_id);
+	String get_id() const;
+
+	void set_class(const String &p_class);
+	void toggle_class(const String &p_class);
+	void set_class_names(const String &p_class_names);
+	void remove_class(const String &p_class);
+	String get_class_names() const;
+	bool has_class(const String &p_class) const;
+
 	String get_tag_name() const;
 
 	void set_text_content(const String &p_text);
