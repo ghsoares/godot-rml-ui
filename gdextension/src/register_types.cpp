@@ -1,5 +1,15 @@
 #include "register_types.h"
 
+#include "project_settings.h"
+
+#include "interface/system_interface_godot.h"
+#include "interface/render_interface_godot.h"
+#include "interface/file_interface_godot.h"
+#include "element/rml_document.h"
+#include "element/rml_element.h"
+#include "server/rml_server.h"
+#include "plugin/rml_godot_plugin.h"
+
 #include <iostream>
 #include <sstream>
 
@@ -11,13 +21,7 @@
 #include <godot_cpp/godot.hpp>
 
 #include <RmlUi/Core.h>
-#include "interface/system_interface_godot.h"
-#include "interface/render_interface_godot.h"
-#include "interface/file_interface_godot.h"
-#include "element/rml_document.h"
-#include "element/rml_element.h"
-#include "server/rml_server.h"
-#include "plugin/rml_godot_plugin.h"
+
 
 using namespace godot;
 
@@ -43,6 +47,9 @@ void uninitialize_rmlui() {
 void initialize_gdex_module(ModuleInitializationLevel p_level) {
 	switch (p_level) {
 		case MODULE_INITIALIZATION_LEVEL_CORE: {
+			GLOBAL_DEF_RST("RmlUi/load_user_agent_stylesheet", true);
+			GLOBAL_DEF_RST("RmlUi/custom_user_agent_stylesheet", String());
+
 			initialize_rmlui();
 		} break;
 		case MODULE_INITIALIZATION_LEVEL_SERVERS: {

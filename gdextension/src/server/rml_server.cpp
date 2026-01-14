@@ -9,9 +9,11 @@
 #include <godot_cpp/classes/input_event_screen_drag.hpp>
 #include <godot_cpp/classes/font_file.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
+#include <godot_cpp/classes/file_access.hpp>
 #include "../interface/render_interface_godot.h"
 #include "../plugin/rml_godot_plugin.h"
 #include "../rml_util.h"
+#include "../project_settings.h"
 #include "rml_server.h"
 
 using namespace godot;
@@ -25,7 +27,17 @@ RMLServer *RMLServer::get_singleton() {
 void RMLServer::initialize() {
 	ERR_FAIL_COND_MSG(initialized, "Already initialized");
 
-	load_default_stylesheet("res://addons/rmlui/styles/default.rcss");
+	bool load_user_agent_stylesheet = GLOBAL_GET("RmlUi/load_user_agent_stylesheet");
+
+	if (load_user_agent_stylesheet) {
+		String custom_user_agent_stylesheet = GLOBAL_GET("RmlUi/custom_user_agent_stylesheet");
+		bool has_custom_user_agent = custom_user_agent_stylesheet.is_valid_filename() && FileAccess::file_exists(custom_user_agent_stylesheet);
+		if (has_custom_user_agent) {
+			load_default_stylesheet(custom_user_agent_stylesheet);
+		} else {
+			load_default_stylesheet("res://addons/rmlui/styles/default.rcss");
+		}
+	}
 	load_font_face_from_path("res://addons/rmlui/fonts/OpenSans-VariableFont_wdth,wght.ttf");
 
 	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();

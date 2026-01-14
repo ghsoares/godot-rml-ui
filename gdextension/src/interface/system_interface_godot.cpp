@@ -22,6 +22,12 @@ int SystemInterfaceGodot::TranslateString(Rml::String& translated, const Rml::St
 void SystemInterfaceGodot::JoinPath(Rml::String& translated_path, const Rml::String& document_path, const Rml::String& path) {
 	String doc_path = rml_to_godot_string(document_path);
 	String p = rml_to_godot_string(path);
+
+	if (p.is_absolute_path()) {
+		translated_path = godot_to_rml_string(p);
+		return;
+	}
+
 	String new_p = doc_path.get_base_dir().path_join(p).simplify_path();
 	translated_path = godot_to_rml_string(new_p);
 }

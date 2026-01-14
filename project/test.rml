@@ -3,10 +3,9 @@
 	<link type="text/rcss" href="test.rcss"/>
 </head>
 <body>
-	<span id="text">Hello!</span>
+	<span>Hello!</span>
 	<button>Press me!</button>
 	<svg src="icon.svg"/>
-	<input type="text" placeholder="Insert your name"/>
-	<span id="name">Enter your name</span>
+	<input type="text"/>
 </body>
 </rml>
