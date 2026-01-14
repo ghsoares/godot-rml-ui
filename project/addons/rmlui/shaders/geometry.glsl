@@ -47,7 +47,7 @@ void main() {
 	o_color = texelFetch(screen, ivec2(gl_FragCoord.xy), 0);
 
 	vec4 tex_color = texture(tex, i_uv);
-	tex_color.rgb /= tex_color.a;
+	tex_color.rgb /= tex_color.a > 0.0 ? tex_color.a : 1.0;
 	vec4 pix_color = tex_color * i_color;
 
 	// Custom alpha blending function, when this pixel is being rendered by the first time,

@@ -1,23 +1,6 @@
-@keyframes trippy_animation {
-	0% {
-		filter: hue-rotate(0deg);
-	},
-	100% {
-		filter: hue-rotate(360deg);
-	}
-}
-
 body {
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-}
-
-#text {
-	font-size: 32px;
-}
-
-.trippy {
-	animation: trippy_animation 1s infinite;
-	color: red;
+	align-items: flex-start;
+	gap: 4px;
 }

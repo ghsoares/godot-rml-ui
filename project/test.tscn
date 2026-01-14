@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://djfrrj5e8u1u1"]
+[gd_scene load_steps=5 format=3 uid="uid://djfrrj5e8u1u1"]
 
 [ext_resource type="Script" uid="uid://b6s5y72kvuolt" path="res://test.gd" id="1_37kl0"]
+[ext_resource type="Texture2D" uid="uid://s0cbchxdrn4d" path="res://icon.svg" id="2_8uh7m"]
 
 [sub_resource type="Shader" id="Shader_37kl0"]
 code = "shader_type canvas_item;
@@ -31,6 +32,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="ColorRect" type="ColorRect" parent="."]
+visible = false
 material = SubResource("ShaderMaterial_8uh7m")
 layout_mode = 1
 anchors_preset = 15
@@ -48,6 +50,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="RMLDocument" type="RMLDocument" parent="hbox"]
+visible = false
 custom_minimum_size = Vector2(128, 32)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -57,7 +60,16 @@ script = ExtResource("1_37kl0")
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="Label" type="Label" parent="hbox/VBoxContainer"]
+layout_mode = 2
+text = "Hello!"
+
 [node name="Button" type="Button" parent="hbox/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 text = "Test Button"
+
+[node name="TextureRect" type="TextureRect" parent="hbox/VBoxContainer"]
+layout_mode = 2
+texture = ExtResource("2_8uh7m")
+stretch_mode = 4

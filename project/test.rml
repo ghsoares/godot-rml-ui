@@ -4,7 +4,7 @@
 </head>
 <body>
 	<span>Hello!</span>
-	<button>Press me!</button>
+	<button>Test Button</button>
 	<svg src="icon.svg"/>
 	<input type="text"/>
 </body>

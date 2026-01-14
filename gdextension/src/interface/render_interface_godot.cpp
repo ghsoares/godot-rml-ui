@@ -495,6 +495,11 @@ Rml::CompiledGeometryHandle RenderInterfaceGodot::CompileGeometry(Rml::Span<cons
         color_ptr[i * 4 + 3] = v.colour.alpha / 255.0;
         uv_ptr[i * 2 + 0] = v.tex_coord.x;
         uv_ptr[i * 2 + 1] = v.tex_coord.y;
+
+        // Un-multiply alpha
+        color_ptr[i * 4 + 0] /= color_ptr[i * 4 + 3];
+        color_ptr[i * 4 + 1] /= color_ptr[i * 4 + 3];
+        color_ptr[i * 4 + 2] /= color_ptr[i * 4 + 3];
     }
 
     for (int i = index_count - 1; i >= 0; i--) {
