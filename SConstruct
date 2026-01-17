@@ -67,7 +67,6 @@ thirdparty_paths = [
 
 env.Append(LIBPATH=thirdparty_paths)
 env.Append(LIBS=[f"librmlui"])
-env.Append(SHLINKFLAGS=["-Wl,-Bdynamic", "-shared"])
 
 library = env.SharedLibrary(
     "{}/lib{}{}".format(bin_folder, module_name, env["SHLIBSUFFIX"]),
@@ -76,8 +75,10 @@ library = env.SharedLibrary(
 
 thirdparty_libs = None
 for path in thirdparty_paths:
-    fg = Glob(os.path.join(path, '*'))
+    fg = Glob(os.path.join(path, f"*{env["SHLIBSUFFIX"]}*"))
     thirdparty_libs = fg if thirdparty_libs == None else thirdparty_libs + fg
+
+print(thirdparty_libs)
 
 installed_libs = env.Install(bin_folder, thirdparty_libs)
 env.Depends(library, installed_libs)
