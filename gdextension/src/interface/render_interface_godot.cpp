@@ -1200,7 +1200,7 @@ Rml::CompiledShaderHandle RenderInterfaceGodot::CompileShader(const Rml::String&
         const bool repeating = Rml::Get(parameters, "repeating", false);
         const Rml::ColorStopList stop_list = Rml::Get(parameters, "color_stop_list", Rml::ColorStopList());
         Rml::Vector2f p, v;
-        uint grad_type;
+        unsigned int grad_type;
 
         if (name == "linear-gradient") {
             grad_type = 1;

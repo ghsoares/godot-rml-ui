@@ -1,0 +1,22 @@
+[configuration]
+
+entry_symbol = "gdex_library_init"
+compatibility_minimum = "4.5"
+reloadable = true
+
+[libraries]
+
+windows.debug.x86_32 = "res://addons/rmlui/bin/windows.template_debug.x86_32/libgdex.dll"
+windows.release.x86_32 = "res://addons/rmlui/bin/windows.template_release.x86_32/libgdex.dll"
+windows.debug.x86_64 = "res://addons/rmlui/bin/windows.template_debug.x86_64/libgdex.dll"
+windows.release.x86_64 = "res://addons/rmlui/bin/windows.template_release.x86_64/libgdex.dll"
+linux.debug.x86_64 = "res://addons/rmlui/bin/linux.template_debug.x86_64/libgdex.so"
+linux.release.x86_64 = "res://addons/rmlui/bin/linux.template_release.x86_64/libgdex.so"
+linux.debug.arm64 = "res://addons/rmlui/bin/linux.template_debug.arm64/libgdex.so"
+linux.release.arm64 = "res://addons/rmlui/bin/linux.template_release.arm64/libgdex.so"
+linux.debug.rv64 = "res://addons/rmlui/bin/linux.template_debug.rv64/libgdex.so"
+linux.release.rv64 = "res://addons/rmlui/bin/linux.template_release.rv64/libgdex.so"
+android.debug.x86_64 = "res://addons/rmlui/bin/android.template_debug.x86_64/libgdex.so"
+android.release.x86_64 = "res://addons/rmlui/bin/android.template_release.x86_64/libgdex.so"
+android.debug.arm64 = "res://addons/rmlui/bin/android.template_debug.arm64/libgdex.so"
+android.release.arm64 = "res://addons/rmlui/bin/android.template_release.arm64/libgdex.so"

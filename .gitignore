@@ -2,7 +2,4 @@
 .godot/
 /android/
 gdextension/build/
-*.so
-*.so.1
-*.so.2
-*.so.3
+project/addons/rmlui/bin/

@@ -1,0 +1,4 @@
+services:
+  builder:
+    image: godot_gdextension
+    build: .
