@@ -1,5 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
-gdextension/build/
-project/addons/rmlui/bin/
+build/
+__pycache__
+*.obj
+*.dblite
+*.o
+*.os

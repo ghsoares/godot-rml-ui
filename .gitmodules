@@ -1,10 +1,10 @@
 [submodule "gdextension/godot-cpp"]
-	path = gdextension/godot-cpp
+	path = dependencies/godot-cpp
 	url = https://github.com/godotengine/godot-cpp
 	branch = 4.5
 [submodule "gdextension/RmlUi"]
-	path = gdextension/RmlUi
+	path = dependencies/RmlUi
 	url = https://github.com/mikke89/RmlUi.git
 [submodule "gdextension/lunasvg"]
-	path = gdextension/lunasvg
+	path = dependencies/lunasvg
 	url = https://github.com/sammycage/lunasvg.git
