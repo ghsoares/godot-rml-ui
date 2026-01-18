@@ -1,43 +1,23 @@
 #!/usr/bin/env python
 import os
 import sys
+import methods
 
 from generate_bindings import generate_input_key_mapping
 
-env = SConscript("dependencies/godot-cpp/SConstruct")
-
-deps_build_folder = os.path.abspath(f"build/{env["platform"]}.{env["target"]}.{env["arch"]}")
+env = SConscript("godot-cpp/SConstruct")
 
 opts = Variables([], ARGUMENTS)
+opts.Add(BoolVariable("brotli", "Enable Brotli for decompression and WOFF2 fonts support", True))
+opts.Add(BoolVariable("modules_enabled_by_default", "If no, disable all modules except ones explicitly enabled", True))
 opts.Add(BoolVariable("svg_plugin", "Build with SVG plugin (LunaSVG)", True))
+
+# Thirdparty libraries
+opts.Add(BoolVariable("builtin_brotli", "Use the built-in Brotli library", True))
+opts.Add(BoolVariable("builtin_libpng", "Use the built-in libpng library", True))
+opts.Add(BoolVariable("builtin_zlib", "Use the built-in zlib library", True))
+
 opts.Update(env)
-
-def build_dependencies():
-    import subprocess
-
-    build_type = "Release" if env["target"] == "template_release" else "Debug"
-
-    commands = []
-    commands.append([
-        f"cmake -B {deps_build_folder} -S .",
-        f"-DBUILD_SHARED_LIBS=ON",
-        f"-DTARGET_ARCH={env["arch"]}",
-        f"-DTARGET_PLATFORM={env["platform"]}",
-        f"-DCMAKE_TOOLCHAIN_FILE=./cmake/{env["platform"]}.cmake",
-        f"-DCMAKE_BUILD_TYPE={build_type}",
-        f"-DRMLUI_SVG_PLUGIN={env["svg_plugin"]}",
-    ])
-
-    commands.append([
-        f"cmake --build {deps_build_folder}"
-    ])
-
-    for cmd in commands:
-        cmd = " ".join(cmd)
-        process = subprocess.run(cmd, shell=True)
-
-generate_input_key_mapping()
-build_dependencies()
 
 # The module name
 module_name = "gdex"
@@ -57,30 +37,26 @@ for folder in folders:
     else:
         sources = sources + fg
 
-folders.append('dependencies/RmlUi/Include')
 env.Append(CPPPATH=folders)
 
-# Include third-party libraries
-thirdparty_paths = [
-    f'{deps_build_folder}/bin'
-]
+env.__class__.add_source_files = methods.add_source_files
+env.__class__.add_library = methods.add_library
+env.__class__.add_shared_library = methods.add_shared_library
+env.__class__.add_program = methods.add_program
+env.__class__.module_add_dependencies = methods.module_add_dependencies
+env.__class__.module_check_dependencies = methods.module_check_dependencies
 
-env.Append(LIBPATH=thirdparty_paths)
-env.Append(LIBS=[f"librmlui"])
+env.module_dependencies = {}
+env.disabled_modules = set()
 
-library = env.SharedLibrary(
-    "{}/lib{}{}".format(bin_folder, module_name, env["SHLIBSUFFIX"]),
-    source=sources,
-)
+Export("env")
 
-thirdparty_libs = None
-for path in thirdparty_paths:
-    fg = Glob(os.path.join(path, f"*{env["SHLIBSUFFIX"]}*"))
-    thirdparty_libs = fg if thirdparty_libs == None else thirdparty_libs + fg
+SConscript("modules/SCsub")
 
-print(thirdparty_libs)
-
-installed_libs = env.Install(bin_folder, thirdparty_libs)
-env.Depends(library, installed_libs)
-
+library = env.add_shared_library("{}/lib{}".format(bin_folder, module_name), sources)
 Default(library)
+
+
+
+
+

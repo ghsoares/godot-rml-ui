@@ -2,8 +2,9 @@
 .godot/
 /android/
 build/
-__pycache__
 *.obj
 *.dblite
 *.o
 *.os
+*.a
+**/__pycache__
