@@ -2,7 +2,7 @@
 
 A GDExtension for rendering and manipulating documents using [RmlUi](https://github.com/mikke89/RmlUi).
 
-Supports Godot version 4.3 stable+
+Supports Godot version 4.5+
 
 ## Platforms
 

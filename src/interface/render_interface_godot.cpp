@@ -780,7 +780,7 @@ void RenderInterfaceGodot::RenderFilter(Rml::CompiledFilterHandle filter) {
     for (int i = 0; i < shader_data->passes.size(); i++) {
         const ShaderRenderData::Pass &pass = shader_data->passes[i];
 
-        TypedArray<Ref<RDUniform>> uniforms;
+        TypedArray<RDUniform> uniforms;
 
         RID *src_tex0, *src_tex1;
         src_tex0 = filter_get_texture(target_frame, pass.src0);
@@ -1262,7 +1262,7 @@ void RenderInterfaceGodot::RenderShader(Rml::CompiledShaderHandle shader, Rml::C
     for (int i = 0; i < shader_data->passes.size(); i++) {
         ShaderRenderData::Pass &pass = shader_data->passes[i];
 
-        TypedArray<Ref<RDUniform>> uniforms;
+        TypedArray<RDUniform> uniforms;
 
         RID *src_tex0, *src_tex1;
         src_tex0 = filter_get_texture(target_frame, pass.src0);

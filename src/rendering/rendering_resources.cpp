@@ -187,7 +187,7 @@ RID RenderingResources::create_pipeline(const std::map<String, Variant> &p_data)
 	depth_stencil_state->set_front_op_pass((RD::StencilOperation)(int)map_get2(p_data, "front_op_pass", "op_pass", RD::STENCIL_OP_ZERO));
 	depth_stencil_state->set_front_op_fail((RD::StencilOperation)(int)map_get2(p_data, "front_op_fail", "op_fail", RD::STENCIL_OP_ZERO));
 
-	TypedArray<Ref<RDPipelineColorBlendStateAttachment>> attachments;
+	TypedArray<RDPipelineColorBlendStateAttachment> attachments;
 	int attachment_count = map_get(p_data, "attachment_count", 1);
 	for (int i = attachment_count - 1; i >= 0; i--) {
 		Ref<RDPipelineColorBlendStateAttachment> attachment = memnew(RDPipelineColorBlendStateAttachment);

@@ -36,9 +36,9 @@ Ref<RMLElement> RMLElement::query_selector(const String &p_selector) const {
 	return RMLElement::ref(element->QuerySelector(godot_to_rml_string(p_selector)));
 }
 
-TypedArray<Ref<RMLElement>> RMLElement::query_selector_all(const String &p_selector) const {
-	ENSURE_VALID_V(this, TypedArray<Ref<RMLElement>>());
-	TypedArray<Ref<RMLElement>> ret;
+TypedArray<RMLElement> RMLElement::query_selector_all(const String &p_selector) const {
+	ENSURE_VALID_V(this, TypedArray<RMLElement>());
+	TypedArray<RMLElement> ret;
 
 	Rml::ElementList list;
 	element->QuerySelectorAll(list, godot_to_rml_string(p_selector));
@@ -67,10 +67,10 @@ Ref<RMLElement> RMLElement::get_child(int p_idx) const {
 	return RMLElement::ref(element->GetChild(p_idx));
 }
 
-TypedArray<Ref<RMLElement>> RMLElement::get_children() const {
-	ENSURE_VALID_V(this, TypedArray<Ref<RMLElement>>());
+TypedArray<RMLElement> RMLElement::get_children() const {
+	ENSURE_VALID_V(this, TypedArray<RMLElement>());
 	int count = element->GetNumChildren();
-	TypedArray<Ref<RMLElement>> ret;
+	TypedArray<RMLElement> ret;
 	ret.resize(count);
 
 	for (int i = 0; i < count; i++) {
