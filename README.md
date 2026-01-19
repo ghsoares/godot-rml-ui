@@ -30,7 +30,7 @@ By default, this node creates an empty document where you can add, remove and mo
 </rml>
 ```
 
-```godot
+```gdscript
 extends RMLDocument
 
 func _ready() -> void:
