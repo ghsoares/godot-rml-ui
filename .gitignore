@@ -2,9 +2,11 @@
 .godot/
 /android/
 libs/
+bin/
 __pycache__/
 *.obj
 *.dblite
 *.o
 *.os
 *.a
+*.gen*

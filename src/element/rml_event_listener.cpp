@@ -18,7 +18,7 @@ void RMLEventListener::ProcessEvent(Rml::Event &event) {
 
 	event_dict["type"] = rml_to_godot_string(event.GetType());
 	event_dict["target_element"] = RMLElement::ref(target_element_ref);
-	event_dict["current_element"] = RMLElement::ref(target_element_ref);
+	event_dict["current_element"] = RMLElement::ref(current_element_ref);
 
 	for (auto it : event.GetParameters()) {
 		event_dict[rml_to_godot_string(it.first)] = rml_to_godot_variant(it.second);

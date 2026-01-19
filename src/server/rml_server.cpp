@@ -236,6 +236,7 @@ bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEve
 						godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 					);
 				} break;
+				default: {}
 			}
 		} else {
 			switch (mb->get_button_index()) {
@@ -257,6 +258,7 @@ bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEve
 						godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 					);
 				} break;
+				default: {}
 			}
 		}
 	}
@@ -414,11 +416,6 @@ void RMLServer::render() {
 }
 
 void RMLServer::_bind_methods() {;
-	ClassDB::bind_method(D_METHOD("is_initialized"), &RMLServer::is_initialized);
-
-	ClassDB::bind_method(D_METHOD("initialize"), &RMLServer::initialize);
-	ClassDB::bind_method(D_METHOD("uninitialize"), &RMLServer::uninitialize);
-
 	ClassDB::bind_method(D_METHOD("create_document", "canvas_item"), &RMLServer::create_document);
 	ClassDB::bind_method(D_METHOD("create_document_from_rml_string", "canvas_item", "rml"), &RMLServer::create_document_from_rml_string);
 	ClassDB::bind_method(D_METHOD("create_document_from_path", "canvas_item", "path"), &RMLServer::create_document_from_path);
@@ -432,6 +429,11 @@ void RMLServer::_bind_methods() {;
 	ClassDB::bind_method(D_METHOD("load_font_face_from_buffer", "buffer", "family", "fallback_face", "is_italic"), &RMLServer::load_font_face_from_buffer, DEFVAL(false), DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("free_rid", "rid"), &RMLServer::free_rid);
+
+	ClassDB::bind_method(D_METHOD("is_initialized"), &RMLServer::is_initialized);
+
+	ClassDB::bind_method(D_METHOD("initialize"), &RMLServer::initialize);
+	ClassDB::bind_method(D_METHOD("uninitialize"), &RMLServer::uninitialize);
 }
 
 RMLServer::RMLServer() {

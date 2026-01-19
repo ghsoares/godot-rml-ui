@@ -5,13 +5,17 @@
 
 using namespace godot;
 
-#ifdef STRICT_REFERENCE_NODE
+#ifdef ELEMENT_REFERENCE_STRICT
 #define ENSURE_VALID(ref) ERR_FAIL_NULL_MSG(ref, #ref " is invalid"); ERR_FAIL_NULL_MSG(ref->element, #ref " is invalid");
 #define ENSURE_VALID_V(ref, val) ERR_FAIL_NULL_V_MSG(ref, val, #ref " is invalid"); ERR_FAIL_NULL_V_MSG(ref->element, val, #ref " is invalid");
 #else
 #define ENSURE_VALID(ref) if (ref == nullptr || !ref->element.is_valid()) { return; }
 #define ENSURE_VALID_V(ref, val) if (ref == nullptr || !ref->element.is_valid()) { return val; }
 #endif
+
+bool RMLElement::is_valid() const {
+	return this->element.is_valid();
+}
 
 void RMLElement::append_child(const Ref<RMLElement> &p_child) {
 	ENSURE_VALID(this);
@@ -266,6 +270,7 @@ Ref<RMLElement> RMLElement::empty() {
 }
 
 void RMLElement::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("is_valid"), &RMLElement::is_valid);
 	ClassDB::bind_method(D_METHOD("append_child", "child"), &RMLElement::append_child);
 	ClassDB::bind_method(D_METHOD("remove_child", "child"), &RMLElement::remove_child);
 

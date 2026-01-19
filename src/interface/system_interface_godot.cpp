@@ -62,6 +62,7 @@ bool SystemInterfaceGodot::LogMessage(Rml::Log::Type msg_type, const Rml::String
 				UtilityFunctions::print("[RmlUi] ", msg.c_str());
 			}
 		} break;
+		default: {}
 	}
 	return true;
 }

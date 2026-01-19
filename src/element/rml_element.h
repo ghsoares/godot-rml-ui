@@ -80,6 +80,8 @@ protected:
 	static void _bind_methods();
 
 public:
+	bool is_valid() const;
+
 	void append_child(const Ref<RMLElement> &p_child);
 	void remove_child(const Ref<RMLElement> &p_child);
 	Ref<RMLElement> query_selector(const String &p_selector) const;

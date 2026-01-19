@@ -82,8 +82,8 @@ RID *filter_get_texture(RenderFrame *frame, const BufferTarget &target) {
 		case BufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.color1;
 		case BufferTarget::BLEND_BUFFER0: return &frame->blend_mask_target.color0;
 		case BufferTarget::BLEND_BUFFER1: return &frame->blend_mask_target.color1;
+        default: return nullptr;
 	}
-	return nullptr;
 }
 
 RID *filter_get_framebuffer(RenderFrame *frame, const BufferTarget &target) {
@@ -94,8 +94,8 @@ RID *filter_get_framebuffer(RenderFrame *frame, const BufferTarget &target) {
 		case BufferTarget::SECONDARY_BUFFER1: return &frame->secondary_filter_target.framebuffer1;
 		case BufferTarget::BLEND_BUFFER0: return &frame->blend_mask_target.framebuffer0;
 		case BufferTarget::BLEND_BUFFER1: return &frame->blend_mask_target.framebuffer1;
+        default: return nullptr;
 	}
-	return nullptr;
 }
 
 RenderInterfaceGodot *RenderInterfaceGodot::singleton = nullptr;

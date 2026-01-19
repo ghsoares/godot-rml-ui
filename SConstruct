@@ -8,14 +8,15 @@ from generate_bindings import generate_input_key_mapping
 env = SConscript("godot-cpp/SConstruct")
 
 opts = Variables([], ARGUMENTS)
-opts.Add(BoolVariable("brotli", "Enable Brotli for decompression and WOFF2 fonts support", True))
-opts.Add(BoolVariable("modules_enabled_by_default", "If no, disable all modules except ones explicitly enabled", True))
 opts.Add(BoolVariable("svg_plugin", "Build with SVG plugin (LunaSVG)", True))
+opts.Add(BoolVariable("element_reference_strict", "Build with strict RMLElement reference, which throws error when trying to manipulate", False))
 
 opts.Update(env)
 
+env.msvc = False
+
 module_name = "gdex"
-bin_folder = f"#project/addons/rmlui/bin/"
+bin_folder = f"#bin/"
 lib_folder = f"#libs/{env["platform"]}.{env["target"]}.{env["arch"]}/"
 
 methods.init_env(env, lib_folder)
@@ -42,6 +43,9 @@ env.build_thirdparty_library(
 )
 
 # Build zlib
+zlib_defines = []
+if env.dev_build:
+    zlib_defines.append("ZLIB_DEBUG")
 env.build_thirdparty_library(
     "zlib",
     [
@@ -57,7 +61,7 @@ env.build_thirdparty_library(
         "zutil.c",
     ],
     [""],
-    ["ZLIB_DEBUG"]
+    zlib_defines
 )
 
 # Build libpng
@@ -84,14 +88,9 @@ if env["arch"].startswith("arm"):
     if env.msvc:  # Can't compile assembly files with MSVC.
         libpng_defines.append(("PNG_ARM_NEON_OPT", 0))
     else:
-        env_neon = env.Clone()
-        if "S_compiler" in env:
-            env_neon["CC"] = env["S_compiler"]
-        neon_sources = []
-        neon_sources.append(env_neon.Object(libpng_dir + "arm/arm_init.c"))
-        neon_sources.append(env_neon.Object(libpng_dir + "arm/filter_neon_intrinsics.c"))
-        neon_sources.append(env_neon.Object(libpng_dir + "arm/palette_neon_intrinsics.c"))
-        libpng_sources += neon_sources
+        libpng_sources.append("arm/arm_init.c")
+        libpng_sources.append("arm/filter_neon_intrinsics.c")
+        libpng_sources.append("arm/palette_neon_intrinsics.c")
 elif env["arch"].startswith("x86"):
     libpng_defines.append("PNG_INTEL_SSE")
     libpng_sources.append("intel/intel_init.c")
@@ -195,6 +194,7 @@ rmlui_sources = [
 rmlui_defines = [
     "RMLUI_STATIC_LIB",
     "RMLUI_FONT_ENGINE_FREETYPE",
+    "ITLIB_FLAT_MAP_NO_THROW",
     ("RMLUI_FONT_ENGINE", "freetype"),
 ]
 if env["svg_plugin"]:
@@ -222,6 +222,17 @@ sources = []
 for folder in source_folders:
     sources += env.Glob(os.path.join(folder, '*.cpp'))
 env.Append(CPPPATH=source_folders)
+
+# Build the documentation
+if env["target"] in ["editor", "template_debug"]:
+    try:
+        doc_data = env.GodotCPPDocData("src/gen/doc_data.gen.cpp", source=Glob("doc_classes/*.xml"))
+        sources.append(doc_data)
+    except AttributeError:
+        print("Not including class reference as we're targeting a pre-4.3 baseline.")
+
+if env["element_reference_strict"]:
+    env.Append(CPPDEFINES=["ELEMENT_REFERENCE_STRICT"])
 
 library = env.SharedLibrary(
     "{}/lib{}{}{}".format(bin_folder, module_name, env["suffix"], env["SHLIBSUFFIX"]), 

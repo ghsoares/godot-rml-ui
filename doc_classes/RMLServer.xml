@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="RMLServer" inherits="Object" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+	<brief_description>
+		Server for creating and manipulating RmlUi documents.
+	</brief_description>
+	<description>
+		Allows direct access for RmlUi document manipulation, including loading document files, creating elements, processing events and updating documents. 
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="create_document">
+			<return type="RID" />
+			<param index="0" name="canvas_item" type="RID" />
+			<description>
+				Creates a new empty document.
+				[param canvas_item] is used to rendering the document.
+			</description>
+		</method>
+		<method name="create_document_from_rml_string">
+			<return type="RID" />
+			<param index="0" name="canvas_item" type="RID" />
+			<param index="1" name="string" type="String" />
+			<description>
+				Creates a new document and loads it's source from [param string].
+				[param canvas_item] is used to rendering the document.
+			</description>
+		</method>
+		<method name="create_document_from_path">
+			<return type="RID" />
+			<param index="0" name="canvas_item" type="RID" />
+			<param index="1" name="path" type="String" />
+			<description>
+				Creates a new document and loads it's source from [param path].
+				[param canvas_item] is used to rendering the document.
+			</description>
+		</method>
+		<method name="get_document_root">
+			<return type="RMLElement" />
+			<param index="0" name="document" type="RID" />
+			<description>
+				Gets a [class RMLElement] reference to the document's root element.
+			</description>
+		</method>
+		<method name="create_element">
+			<return type="RMLElement" />
+			<param index="0" name="document" type="RID" />
+			<param index="1" name="tag_name" type="String" />
+			<description>
+				Creates an element of type [param tag_name].
+				Must add to the document with [method RMLElement.append_child].
+			</description>
+		</method>
+		<method name="document_update">
+			<return type="void" />
+			<param index="0" name="document" type="RID" />
+			<description>
+				Updates the document's layout, must be called after adding elements.
+			</description>
+		</method>
+		<method name="document_set_size">
+			<return type="void" />
+			<param index="0" name="document" type="RID" />
+			<param index="1" name="size" type="Vector2i" />
+			<description>
+				Sets the document's context size.
+			</description>
+		</method>
+		<method name="document_process_event">
+			<return type="void" />
+			<param index="0" name="document" type="RID" />
+			<param index="1" name="event" type="InputEvent" />
+			<description>
+				Issue a [class InputEvent] to the document's context.
+			</description>
+		</method>
+		<method name="document_set_cursor_shape">
+			<return type="void" />
+			<param index="0" name="document" type="RID" />
+			<param index="1" name="shape" type="int" enum="Input.CursorShape" />
+			<description>
+				Sets the cursor shape of the document.
+				It doesn't set the actual cursor shape, must be retrieved with [method document_get_cursor_shape] and used with [member Control.default_cursor_shape], for example.
+			</description>
+		</method>
+		<method name="document_get_cursor_shape">
+			<return type="int" enum="Input.CursorShape" />
+			<param index="0" name="document" type="RID" />
+			<description>
+				Gets the cursor shape of the document.
+			</description>
+		</method>
+		<method name="load_default_stylesheet">
+			<return type="bool"/>
+			<param index="0" name="path" type="String" />
+			<description>
+				Loads an user-agent stylesheet and sets it as default when creating new documents.
+
+				When [member ProjectSettings.RmlUi/load_user_agent_stylesheet] setting is [code]true[/code], it's called automatically with the addon internal stylesheet.
+				You can also configure [member ProjectSettings.RmlUi/custom_user_agent_stylesheet] to load a custom user-agent stylesheet instead of the internal one.
+
+				Returns [code]true[/code] when loaded successfully.
+			</description>
+		</method>
+		<method name="load_font_face_from_path">
+			<return type="bool"/>
+			<param index="0" name="path" type="String" />
+			<param index="1" name="fallback_face" type="bool" default="false" />
+			<description>
+				Loads a font face file from path.
+
+				Pass [code]true[/code] to [param fallback_face] to use this font face as fallback for unrecognized glyphs.
+			
+				Returns [code]true[/code] when loaded successfully.
+			</description>
+		</method>
+		<method name="load_font_face_from_buffer">
+			<return type="bool"/>
+			<param index="0" name="buffer" type="PackedByteArray" />
+			<param index="1" name="family" type="String" />
+			<param index="2" name="fallback_face" type="bool" default="false" />
+			<param index="3" name="is_itallic" type="bool" default="false" />
+			<description>
+				Loads a font face file from buffer array.
+				
+				Pass [code]true[/code] to [param fallback_face] to use this font face as fallback for unrecognized glyphs.
+			
+				Returns [code]true[/code] when loaded successfully.
+			</description>
+		</method>
+		<method name="free_rid">
+			<return type="void" />
+			<param index="0" name="rid" type="RID" />
+			<description>
+				Tries to free an object in the RMLServer.
+			</description>
+		</method>
+	</methods>
+</class>

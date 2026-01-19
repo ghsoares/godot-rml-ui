@@ -70,7 +70,7 @@ Replace `<target>` with the desiredbuild target:
 - `template_debug` for debug builds;
 - `template_release` for optimized, release builds.
 
-The binary will be compiled in `project/addons/rmlui/bin/` folder.
+The binary will be compiled in `bin/` folder.
 
 ## Thirdparty
 
