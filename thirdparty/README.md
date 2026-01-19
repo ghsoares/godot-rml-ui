@@ -72,7 +72,7 @@ Files extracted from upstream source:
 
 Files extracted from upstream source:
 
-- `Include` and `Source` folders
+- `Include` and `Source` folders, except `Include/RmlUi/Debugger` and `Source/Debugger` folders
 - `LICENSE.txt`
 
 
