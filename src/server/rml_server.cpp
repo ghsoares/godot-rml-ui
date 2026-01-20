@@ -25,9 +25,7 @@ RMLServer *RMLServer::get_singleton() {
 	return singleton;
 }
 
-void RMLServer::initialize() {
-	ERR_FAIL_COND_MSG(initialized, "Already initialized");
-
+void RMLServer::load_resources() {
 	bool load_user_agent_stylesheet = GLOBAL_GET("RmlUi/load_user_agent_stylesheet");
 
 	if (load_user_agent_stylesheet) {
@@ -40,26 +38,23 @@ void RMLServer::initialize() {
 		}
 	}
 	load_font_face_from_path("res://addons/rmlui/fonts/OpenSans-VariableFont_wdth,wght.ttf");
+}
+
+void RMLServer::initialize() {
+	RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &RMLServer::render));
 
 	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
 	ri->initialize();
 
-	RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &RMLServer::render));
-
-	initialized = true;
 	Rml::Log::Message(Rml::Log::LT_INFO, "RMLServer initialized.");
 }
 
 void RMLServer::uninitialize() {
-	ERR_FAIL_COND_MSG(!initialized, "Already uninitialized");
-	initialized = false;
-	
 	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
 	ri->uninitialize();
 
 	Rml::Log::Message(Rml::Log::LT_INFO, "RMLServer uninitialized.");
 }
-
 
 RID RMLServer::initialize_document(const RID &p_canvas_item) {
 	RID new_rid = document_owner.make_rid();
@@ -84,6 +79,7 @@ RID RMLServer::initialize_document(const RID &p_canvas_item) {
 
 RID RMLServer::create_document(const RID &p_canvas_item) {
 	RID new_rid = initialize_document(p_canvas_item);
+	ERR_FAIL_COND_V(!new_rid.is_valid(), RID());
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
 
 	doc_data->doc = doc_data->ctx->CreateDocument();
@@ -103,6 +99,7 @@ RID RMLServer::create_document(const RID &p_canvas_item) {
 
 RID RMLServer::create_document_from_rml_string(const RID &p_canvas_item, const String &p_string) {
 	RID new_rid = initialize_document(p_canvas_item);
+	ERR_FAIL_COND_V(!new_rid.is_valid(), RID());
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
 
 	doc_data->doc = doc_data->ctx->LoadDocumentFromMemory(godot_to_rml_string(p_string));
@@ -122,6 +119,7 @@ RID RMLServer::create_document_from_rml_string(const RID &p_canvas_item, const S
 
 RID RMLServer::create_document_from_path(const RID &p_canvas_item, const String &p_path) {
 	RID new_rid = initialize_document(p_canvas_item);
+	ERR_FAIL_COND_V(!new_rid.is_valid(), RID());
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
 
 	doc_data->doc = doc_data->ctx->LoadDocument(godot_to_rml_string(p_path));
@@ -429,11 +427,6 @@ void RMLServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load_font_face_from_buffer", "buffer", "family", "fallback_face", "is_italic"), &RMLServer::load_font_face_from_buffer, DEFVAL(false), DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("free_rid", "rid"), &RMLServer::free_rid);
-
-	ClassDB::bind_method(D_METHOD("is_initialized"), &RMLServer::is_initialized);
-
-	ClassDB::bind_method(D_METHOD("initialize"), &RMLServer::initialize);
-	ClassDB::bind_method(D_METHOD("uninitialize"), &RMLServer::uninitialize);
 }
 
 RMLServer::RMLServer() {

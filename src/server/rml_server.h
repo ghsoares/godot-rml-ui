@@ -20,8 +20,6 @@ class RMLServer: public Object {
 
 	static RMLServer *singleton;
 
-	bool initialized = false;
-
 	struct DocumentData;
 
 	struct DocumentData {
@@ -44,8 +42,7 @@ protected:
 public:
 	static RMLServer *get_singleton();
 
-	bool is_initialized() const { return initialized; }
-
+	void load_resources();
 	void initialize();
 	void uninitialize();
 

@@ -54,7 +54,6 @@ void RMLDocument::_gui_input(const Ref<InputEvent> &p_event) {
 }
 
 void RMLDocument::new_document() {
-	if (!RMLServer::get_singleton()->is_initialized()) { return; }
 	if (rid.is_valid()) {
 		RMLServer::get_singleton()->free_rid(rid);
 	}
@@ -63,7 +62,6 @@ void RMLDocument::new_document() {
 }
 
 void RMLDocument::load_from_rml_string(const String &p_rml) {
-	if (!RMLServer::get_singleton()->is_initialized()) { return; }
 	if (rid.is_valid()) {
 		RMLServer::get_singleton()->free_rid(rid);
 	}
@@ -72,7 +70,6 @@ void RMLDocument::load_from_rml_string(const String &p_rml) {
 }
 
 void RMLDocument::load_from_path(const String &p_path) {
-	if (!RMLServer::get_singleton()->is_initialized()) { return; }
 	if (rid.is_valid()) {
 		RMLServer::get_singleton()->free_rid(rid);
 	}

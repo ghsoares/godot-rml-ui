@@ -55,6 +55,7 @@ void initialize_gdex_module(ModuleInitializationLevel p_level) {
 			GDREGISTER_CLASS(RMLServer);
 
 			rml_server = memnew(RMLServer);
+			rml_server->load_resources();
 
 			Engine::get_singleton()->register_singleton("RMLServer", rml_server);
 		} break;
@@ -76,6 +77,14 @@ void uninitialize_gdex_module(ModuleInitializationLevel p_level) {
 	}
 }
 
+void startup_gdex_module() {
+	RMLServer::get_singleton()->initialize();
+}
+
+void shutdown_gdex_module() {
+	RMLServer::get_singleton()->uninitialize();
+}
+
 extern "C" {
 // Initialization.
 GDExtensionBool GDE_EXPORT gdex_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, const GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
@@ -83,6 +92,8 @@ GDExtensionBool GDE_EXPORT gdex_library_init(GDExtensionInterfaceGetProcAddress 
 
 	init_obj.register_initializer(initialize_gdex_module);
 	init_obj.register_terminator(uninitialize_gdex_module);
+	init_obj.register_startup_callback(startup_gdex_module);
+	init_obj.register_shutdown_callback(shutdown_gdex_module);
 	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
 	return init_obj.init();

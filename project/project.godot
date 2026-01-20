@@ -18,10 +18,6 @@ config/name="RmlUI"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 
-[autoload]
-
-RMLInit="*res://addons/rmlui/rml_init.gd"
-
 [display]
 
 window/vsync/vsync_mode=0
