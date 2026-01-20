@@ -415,7 +415,7 @@ void RMLServer::render() {
 	}
 }
 
-void RMLServer::_bind_methods() {;
+void RMLServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("create_document", "canvas_item"), &RMLServer::create_document);
 	ClassDB::bind_method(D_METHOD("create_document_from_rml_string", "canvas_item", "rml"), &RMLServer::create_document_from_rml_string);
 	ClassDB::bind_method(D_METHOD("create_document_from_path", "canvas_item", "path"), &RMLServer::create_document_from_path);
