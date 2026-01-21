@@ -1,9 +1,17 @@
 <rml>
 <head>
-	<link type="text/rcss" href="test.rcss"/>
+	<style>
+		body {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+		}
+	</style>
 </head>
 <body>
-	<span>Hello!</span>
+	<h1>Hello!</h1>
 	<button>Test Button</button>
 	<svg src="icon.svg"/>
 	<input type="text"/>

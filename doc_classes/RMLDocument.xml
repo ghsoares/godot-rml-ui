@@ -26,14 +26,14 @@
 			<return type="void" />
 			<param index="0" name="path" type="String" />
 			<description>
-				Creates a new document and load the source from [param rml] which must be a valid RML document.
+				Creates a new document and load the source from [param path].
 			</description>
 		</method>
 		<method name="load_from_rml_string">
 			<return type="void" />
 			<param index="0" name="rml_string" type="String" />
 			<description>
-				Creates a new document and load the source from [param path].
+				Creates a new document and load the source from [param rml_string] which must be a valid RML document.
 			</description>
 		</method>
 		<method name="new_document">
