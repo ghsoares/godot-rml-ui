@@ -1,6 +1,9 @@
 name: Deploy static documentation to Github Pages
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -17,8 +20,18 @@ jobs:
         with:
           python-version: '3.13' 
       
+      - name: Get GitHub Pages URL
+        id: get_pages_url
+        run: |
+          url=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq '.html_url')
+          echo "PAGES_URL=$url" >> $GITHUB_ENV
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Generate Docs
         working-directory: docs
+        env:
+          PROJECT_BASE_URL: ${{ env.PAGES_URL }}
         run: ./generate-docs
         shell: bash
       
