@@ -63,24 +63,32 @@ jobs:
         run: |
           scons target=${{ matrix.target-type }} platform=${{ matrix.target.platform }} arch=${{ matrix.target.arch }} precision=${{ matrix.float-precision }}
 
-      # Move the binaries to the addon folder
-      - name: Move binaries
-        shell: sh
-        run: |
-          cp -r "${{ github.workspace }}/bin/" "${{ github.workspace }}/project/addons/rmlui/bin/"
-
       - name: Save .scons_cache
         uses: ./godot-cpp/.github/actions/godot-cache-save
         with:
           scons-cache: ${{ github.workspace }}/.scons-cache/
           cache-name: ${{ matrix.target.platform }}_${{ matrix.target.arch }}_${{ matrix.float-precision }}_${{ matrix.target-type }}
 
+      # Setup the build artifact
+      - name: Create artifact folder
+        shell: sh
+        run: |
+          mkdir -p "${{ github.workspace }}/artifact/addons/rmlui/"
+      - name: Add addons folder
+        shell: sh
+        run: |
+          cp -r "${{ github.workspace }}/project/addons/rmlui/" "${{ github.workspace }}/artifact/addons/"
+      - name: Move binaries
+        shell: sh
+        run: |
+          cp -r "${{ github.workspace }}/bin/" "${{ github.workspace }}/artifact/addons/rmlui/"
+
       # Upload the build
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: godot-rmlui-${{ matrix.target.platform }}-${{ matrix.target.arch }}-${{ matrix.float-precision }}-${{ matrix.target-type }}
-          path: ${{ github.workspace }}/project/addons/rmlui/
+          path: ${{ github.workspace }}/artifact/
 
   # Merges all the build artifacts together into a single godot-rmlui artifact.
   # If you comment out this step, all the builds will be uploaded individually.
