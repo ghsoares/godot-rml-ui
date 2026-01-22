@@ -66,7 +66,7 @@ jobs:
       - name: Move binaries
         shell: sh
         run: |
-          cp "${{ github.workspace }}/bin/" "${{ github.workspace }}/project/addons/rmlui/bin/"
+          cp -r "${{ github.workspace }}/bin/" "${{ github.workspace }}/project/addons/rmlui/bin/"
 
       - name: Save .scons_cache
         uses: ./godot-cpp/.github/actions/godot-cache-save
