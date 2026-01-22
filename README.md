@@ -12,7 +12,7 @@ Supports Godot version 4.5+
 
 ## Getting Started
 
-Download the addon from releases pages, or head over to [Building Section](#building) to build the GDExtension locally.
+Download the addon from releases pages, or head over to [Building Tutorial](https://ghsoares.github.io/Godot-RmlUi-Docs/tutorial/building.html) to build the GDExtension locally.
 
 A new Control-based node is added: RMLDocument, add it to your scene to create a new document.
 
@@ -50,27 +50,9 @@ func _ready() -> void:
 	- Optional, can set project setting `RmlUi/load_user_agent_stylesheet` to false;
 	- Can also override with project setting `RmlUi/custom_user_agent_stylesheet`;
 
-## Building
+## Documentation
 
-See [Introduction to the buildsystem](https://docs.godotengine.org/en/4.4/contributing/development/compiling/introduction_to_the_buildsystem.html) for the required tools to building this GDExtension in your machine.
-
-You can also build the Dockerfile provided in this repository.
-
-Then build this GDExtension with:
-
-```bash
-scons platform=<platform> target=<target>
-```
-
-Replace `<platform>` with the desired platform:
-- `linux` for Linux systems;
-- `windows` for Windows systems.
-
-Replace `<target>` with the desiredbuild target:
-- `template_debug` for debug builds;
-- `template_release` for optimized, release builds.
-
-The binary will be compiled in `bin/` folder.
+Head over to [documentation page](https://ghsoares.github.io/Godot-RmlUi-Docs/) for the class reference and more tutorials on how to use this addon.
 
 ## Thirdparty
 
