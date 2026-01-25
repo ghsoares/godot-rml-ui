@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import os
 import sys
-import methods
+import misc.methods
 
-from generate_bindings import generate_input_key_mapping
+from misc.generate_bindings import generate_input_key_mapping
 
 env = SConscript("godot-cpp/SConstruct")
 
@@ -19,7 +19,7 @@ module_name = "gdex"
 bin_folder = f"#bin/"
 lib_folder = f"#libs/{env["platform"]}.{env["target"]}.{env["arch"]}/"
 
-methods.init_env(env, lib_folder)
+misc.methods.init_env(env, lib_folder)
 
 # Build brotli
 env.build_thirdparty_library(
