@@ -1,5 +1,7 @@
 # Godot RmlUi
 
+![Godot RmlUi logo](https://raw.githubusercontent.com/ghsoares/Godot-RmlUi-Docs/69b09bb3c2db303698a9c5c8f16fd0db9425fd2d/logo.svg)
+
 A GDExtension for rendering and manipulating documents using [RmlUi](https://github.com/mikke89/RmlUi).
 
 Supports Godot version 4.5+
