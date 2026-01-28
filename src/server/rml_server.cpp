@@ -42,36 +42,37 @@ void RMLServer::load_resources() {
 }
 
 void RMLServer::initialize() {
-	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
+	RenderInterfaceGodot *ri = dynamic_cast<RenderInterfaceGodot *>(Rml::GetRenderInterface());
+	ERR_FAIL_NULL_MSG(ri, "Render interface configured is not of type RenderInterfaceGodot");
 	ri->initialize();
 
 	Rml::Log::Message(Rml::Log::LT_INFO, "RMLServer initialized.");
 }
 
 void RMLServer::uninitialize() {
-	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
-	ri->uninitialize();
+	RenderInterfaceGodot *ri = dynamic_cast<RenderInterfaceGodot *>(Rml::GetRenderInterface());
+	ERR_FAIL_NULL_MSG(ri, "Render interface configured is not of type RenderInterfaceGodot");
+	ri->finalize();
 
 	Rml::Log::Message(Rml::Log::LT_INFO, "RMLServer uninitialized.");
 }
 
 RID RMLServer::initialize_document() {
+	RenderInterfaceGodot *ri = dynamic_cast<RenderInterfaceGodot *>(Rml::GetRenderInterface());
+	ERR_FAIL_NULL_V_MSG(ri, RID(), "Render interface configured is not of type RenderInterfaceGodot");
+
 	RID new_rid = document_owner.make_rid();
-	std::stringstream context_str;
-	context_str << "godot_context_" << new_rid.get_id();
-	
+	String context_id = vformat("godot_context_%d", new_rid.get_id());
 	DocumentData *doc_data = document_owner.get_or_null(new_rid);
 	doc_data->ctx = Rml::CreateContext(
-		context_str.str(),
+		godot_to_rml_string(context_id),
 		Rml::Vector2i(1, 1)
 	);
-
+	
 	if (doc_data->ctx == nullptr) {
 		document_owner.free(new_rid);
 		ERR_FAIL_V_MSG(RID(), "Couldn't create the context");
 	}
-
-	doc_data->render_frame = memnew(RenderFrame);
 
 	return new_rid;
 }
@@ -216,14 +217,22 @@ bool RMLServer::document_process_event(const RID &p_document, const Ref<InputEve
 					);
 				} break;
 				case MouseButton::MOUSE_BUTTON_WHEEL_UP: {
+					Rml::Vector2f delta = Rml::Vector2f(0.0, -1.0);
+					if (mb->get_modifiers_mask() && KeyModifierMask::KEY_MASK_SHIFT) {
+						delta = Rml::Vector2f(-1.0, 0.0);
+					}
 					propagated = doc_data->ctx->ProcessMouseWheel(
-						1.0,
+						delta,
 						godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 					);
 				} break;
 				case MouseButton::MOUSE_BUTTON_WHEEL_DOWN: {
+					Rml::Vector2f delta = Rml::Vector2f(0.0, 1.0);
+					if (mb->get_modifiers_mask() && KeyModifierMask::KEY_MASK_SHIFT) {
+						delta = Rml::Vector2f(1.0, 0.0);
+					}
 					propagated = doc_data->ctx->ProcessMouseWheel(
-						-1.0,
+						delta,
 						godot_to_rml_key_modifiers(mb->get_modifiers_mask())
 					);
 				} break;
@@ -323,12 +332,12 @@ Input::CursorShape RMLServer::document_get_cursor_shape(const RID &p_document) {
 }
 
 void RMLServer::document_draw(const RID &p_document, const RID &p_canvas_item) {
+	RenderInterfaceGodot *ri = dynamic_cast<RenderInterfaceGodot *>(Rml::GetRenderInterface());
+	ERR_FAIL_NULL_MSG(ri, "Render interface configured is not of type RenderInterfaceGodot");
+
 	ERR_FAIL_COND(!document_owner.owns(p_document));
 	DocumentData *doc_data = document_owner.get_or_null(p_document);
 	ERR_FAIL_NULL(doc_data);
-
-	RenderingServer *rs = RenderingServer::get_singleton();
-	RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
 
 	Vector2i size = Vector2i(
 		doc_data->ctx->GetDimensions().x,
@@ -338,16 +347,10 @@ void RMLServer::document_draw(const RID &p_document, const RID &p_canvas_item) {
 		return;
 	}
 
-	doc_data->render_frame->desired_size = size;
-	ri->set_render_frame(doc_data->render_frame);
+	ri->push_context(doc_data->draw_context, size);
 	doc_data->ctx->Render();
-	ri->set_render_frame(nullptr);
-
-	rs->canvas_item_add_texture_rect(
-		p_canvas_item,
-		Rect2(0, 0, size.x, size.y),
-		doc_data->render_frame->get_texture()
-	);
+	ri->pop_context();
+	ri->draw_context(doc_data->draw_context, p_canvas_item);
 }
 
 bool RMLServer::load_default_stylesheet(const String &p_path) {
@@ -374,14 +377,14 @@ bool RMLServer::load_font_face_from_buffer(const PackedByteArray &p_buffer, cons
 }
 
 void RMLServer::free_rid(const RID &p_rid) {
+	RenderInterfaceGodot *ri = dynamic_cast<RenderInterfaceGodot *>(Rml::GetRenderInterface());
+	ERR_FAIL_NULL_MSG(ri, "Render interface configured is not of type RenderInterfaceGodot");
+
 	if (document_owner.owns(p_rid)) {
 		DocumentData *doc_data = document_owner.get_or_null(p_rid);
 		Rml::RemoveContext(doc_data->ctx->GetName());
 		
-		RenderInterfaceGodot *ri = RenderInterfaceGodot::get_singleton();
-		if (doc_data->render_frame->is_valid()) {
-			ri->free_render_frame(doc_data->render_frame);
-		}
+		ri->free_context(doc_data->draw_context);
 		
 		document_owner.free(p_rid);
 	}

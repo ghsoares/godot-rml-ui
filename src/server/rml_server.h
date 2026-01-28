@@ -7,7 +7,6 @@
 #include <RmlUi/Core.h>
 
 #include "../element/rml_element.h"
-#include "../rendering/rendering_resources.h"
 
 namespace godot {
 
@@ -25,8 +24,8 @@ class RMLServer: public Object {
 	struct DocumentData {
 		Rml::Context *ctx;
 		Rml::ElementDocument *doc;
-		RenderFrame *render_frame;
 		Input::CursorShape cursor_shape = Input::CURSOR_ARROW;
+		void *draw_context = nullptr;
 	};
 
 	RID_Owner<DocumentData> document_owner;
